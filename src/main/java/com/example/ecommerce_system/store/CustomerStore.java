@@ -51,7 +51,7 @@ public class CustomerStore {
     }
 
     /**
-     * Retrieve a customer by id.
+     * Retrieve a customer by customer id.
      *
      * Uses {@link com.example.ecommerce_system.dao.interfaces.CustomerDao#findById(java.sql.Connection, java.util.UUID)}.
      * The returned value is cached in the "customers" cache using Spring's cache abstraction.
@@ -67,6 +67,22 @@ public class CustomerStore {
             return this.customerDao.findById(conn, customerId);
         } catch (DaoException e) {
             throw new CustomerRetrievalException(customerId.toString());
+        } catch (SQLException e) {
+            throw new DatabaseConnectionException(e);
+        }
+    }
+
+    /**
+     * Retrieve a customer by user id.</p>
+     * Uses {@link com.example.ecommerce_system.dao.interfaces.CustomerDao#findById(java.sql.Connection, java.util.UUID)}.
+     * The returned value is cached in the "customers" cache using Spring's cache abstraction.
+     */
+    @Cacheable(value = "customers", key = "'user:' + #userId")
+    public Optional<Customer> getCustomerByUserId(UUID userId) {
+        try (Connection conn = dataSource.getConnection()) {
+            return this.customerDao.findByUserId(conn, userId);
+        } catch (DaoException e) {
+            throw new CustomerRetrievalException(userId.toString());
         } catch (SQLException e) {
             throw new DatabaseConnectionException(e);
         }

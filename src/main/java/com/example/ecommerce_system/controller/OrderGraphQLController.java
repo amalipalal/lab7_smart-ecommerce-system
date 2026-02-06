@@ -34,10 +34,10 @@ public class OrderGraphQLController {
 
     @MutationMapping
     public OrderResponseDto placeOrder(
-            @Argument String customerId,
+            @Argument String userId,
             @Argument @Validated(CreateOrderRequest.class) OrderRequestDto input) {
 
-        UUID customerUuid = UUID.fromString(customerId);
-        return orderService.placeOrder(input, customerUuid);
+        UUID userUuid = UUID.fromString(userId);
+        return orderService.placeOrder(input, userUuid);
     }
 }

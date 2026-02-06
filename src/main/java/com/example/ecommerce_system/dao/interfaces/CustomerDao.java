@@ -33,6 +33,15 @@ public interface CustomerDao {
     Optional<Customer> findById(Connection connection, UUID customerId) throws DaoException;
 
     /**
+     * Find a customer by searching for user id
+     * @param connection the {@link java.sql.Connection} to use
+     * @param userId user identifier
+     * @return optional customer when found
+     * @throws DaoException on Dao errors
+     */
+    Optional<Customer> findByUserId(Connection connection, UUID userId) throws DaoException;
+
+    /**
      * Find multiple customers by a set of ids.
      *
      * @param connection the {@link java.sql.Connection} to use

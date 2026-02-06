@@ -29,9 +29,9 @@ public class OrderService {
     /**
      * Places a new order for the specified customer and returns the order response.
      */
-    public OrderResponseDto placeOrder(OrderRequestDto request, UUID customerId) {
-        customerStore.getCustomer(customerId).orElseThrow(
-                () -> new CustomerNotFoundException(customerId.toString()));
+    public OrderResponseDto placeOrder(OrderRequestDto request, UUID userId) {
+        var customer = customerStore.getCustomerByUserId(userId).orElseThrow(
+                () -> new CustomerNotFoundException(userId.toString()));
 
         var orderId = UUID.randomUUID();
 
@@ -40,7 +40,7 @@ public class OrderService {
                 .mapToDouble(item -> item.getPriceAtPurchase() * item.getQuantity())
                 .sum();
 
-        Orders newOrder = createOrder(orderId, request, customerId, totalAmount);
+        Orders newOrder = createOrder(orderId, request, customer.getCustomerId(), totalAmount);
 
         Orders savedOrder = orderStore.createOrder(newOrder, items);
 

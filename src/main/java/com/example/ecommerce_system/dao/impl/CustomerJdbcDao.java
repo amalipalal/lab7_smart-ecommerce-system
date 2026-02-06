@@ -27,6 +27,13 @@ public class CustomerJdbcDao implements CustomerDao {
             WHERE c.customer_id = ?
             """;
 
+    private static final String FIND_BY_USER_ID = """
+            SELECT c.customer_id, c.first_name, c.last_name, u.email, c.phone, u.created_at, c.is_active
+            FROM customer c
+            JOIN users u ON c.user_id = u.user_id
+            WHERE c.user_id = ?
+            """;
+
     private static final String FIND_BY_MULTIPLE_IDS = """
             SELECT c.customer_id, c.first_name, c.last_name, u.email, c.phone, u.created_at, c.is_active
             FROM customer c
@@ -106,6 +113,19 @@ public class CustomerJdbcDao implements CustomerDao {
             }
         } catch (SQLException e) {
             throw new DaoException("Failed to fetch customer " + customerId, e);
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<Customer> findByUserId(Connection conn, UUID userId) throws DaoException {
+        try (PreparedStatement ps = conn.prepareStatement(FIND_BY_USER_ID)) {
+            ps.setObject(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return Optional.of(map(rs));
+            }
+        } catch (SQLException e) {
+            throw new DaoException("Failed to fetch customer with userId: " + userId, e);
         }
         return Optional.empty();
     }

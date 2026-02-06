@@ -112,7 +112,7 @@ type Query {
 }
 
 type Mutation {
-    placeOrder(customerId: ID!, input: OrderRequest!): OrderResponseDto!
+    placeOrder(userId: ID!, input: OrderRequest!): OrderResponseDto!
     addCartItem(customerId: ID!, request: AddCartItemRequestDto!): CartItemResponseDto!
     updateCartItem(customerId: ID!, cartItemId: ID!, request: UpdateCartItemRequest!): CartItemResponseDto!
     removeFromCart(customerId: ID!, cartItemId: ID!): Boolean
