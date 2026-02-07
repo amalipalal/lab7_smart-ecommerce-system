@@ -25,8 +25,8 @@ import java.util.UUID;
 @RestController
 @AllArgsConstructor
 @Validated
-@RequestMapping("/products")
-public class ProductController {
+@RequestMapping("/admin/products")
+public class ProductAdminController {
     private final ProductService productService;
     private final ReviewService reviewService;
 

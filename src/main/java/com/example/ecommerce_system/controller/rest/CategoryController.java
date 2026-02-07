@@ -64,34 +64,4 @@ public class CategoryController {
         List<CategoryResponseDto> categories = categoryService.getCategories(query, limit, offset);
         return SuccessResponseHandler.generateSuccessResponse(HttpStatus.OK, categories);
     }
-
-    @PostMapping
-    public SuccessResponseDto<CategoryResponseDto> addCategory(
-            @RequestBody @Validated(CreateCategoryRequest.class) CategoryRequestDto category
-    ) {
-        CategoryResponseDto categoryCreated = categoryService.createCategory(category);
-        return SuccessResponseHandler.generateSuccessResponse(HttpStatus.CREATED, categoryCreated);
-    }
-
-    @PatchMapping("/{id}")
-    public SuccessResponseDto<CategoryResponseDto> updateCategory(
-            @PathVariable UUID id,
-            @RequestBody @Validated(UpdateCategoryRequest.class) CategoryRequestDto update
-    ) {
-        CategoryResponseDto updatedCategory = categoryService.updateCategory(id, update);
-        return SuccessResponseHandler.generateSuccessResponse(HttpStatus.OK, updatedCategory);
-    }
-
-    @Operation(summary = "Delete a category by id")
-    @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Category deleted"),
-            @ApiResponse(responseCode = "400", description = "Bad request"),
-            @ApiResponse(responseCode = "404", description = "Category not found"),
-            @ApiResponse(responseCode = "409", description = "Category has associated products and cannot be deleted")
-    })
-    @DeleteMapping("/{id}")
-    public SuccessResponseDto<Void> deleteCategory(@PathVariable UUID id) {
-        categoryService.deleteCategory(id);
-        return SuccessResponseHandler.generateSuccessResponse(HttpStatus.NO_CONTENT, null);
-    }
 }

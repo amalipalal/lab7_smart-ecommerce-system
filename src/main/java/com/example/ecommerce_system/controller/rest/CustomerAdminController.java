@@ -21,8 +21,8 @@ import java.util.UUID;
 @RestController
 @AllArgsConstructor
 @Validated
-@RequestMapping("/customers")
-public class CustomerController {
+@RequestMapping("/admin/customers")
+public class CustomerAdminController {
     private final CustomerService customerService;
 
     @Operation(summary = "Retrieve all customers")
