@@ -1,6 +1,5 @@
 package com.example.ecommerce_system.service;
 
-import com.example.ecommerce_system.dto.customer.CustomerResponseDto;
 import com.example.ecommerce_system.dto.review.ReviewRequestDto;
 import com.example.ecommerce_system.dto.review.ReviewResponseDto;
 import com.example.ecommerce_system.exception.customer.CustomerNotFoundException;
@@ -8,10 +7,12 @@ import com.example.ecommerce_system.exception.product.ProductNotFoundException;
 import com.example.ecommerce_system.exception.review.CustomerHasNotOrderedProductException;
 import com.example.ecommerce_system.model.Customer;
 import com.example.ecommerce_system.model.Review;
-import com.example.ecommerce_system.store.CustomerStore;
+import com.example.ecommerce_system.repository.CustomerRepository;
+import com.example.ecommerce_system.repository.ProductRepository;
 import com.example.ecommerce_system.store.OrdersStore;
-import com.example.ecommerce_system.store.ProductStore;
 import com.example.ecommerce_system.store.ReviewStore;
+import com.example.ecommerce_system.util.mapper.CustomerMapper;
+import com.example.ecommerce_system.util.mapper.ReviewMapper;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -23,26 +24,28 @@ import java.util.UUID;
 @AllArgsConstructor
 public class ReviewService {
     private final ReviewStore reviewStore;
-    private final ProductStore productStore;
-    private final CustomerStore customerStore;
+    private final ProductRepository productRepository;
+    private final CustomerRepository customerRepository;
     private final OrdersStore ordersStore;
+    private final ReviewMapper reviewMapper;
+    private final CustomerMapper customerMapper;
 
     /**
      * Create a new review for a product.
      * Validates that the product exists, the customer exists, and the customer has ordered and received (PROCESSED status) the product.
      */
     public ReviewResponseDto createReview(UUID productId, UUID customerId, ReviewRequestDto request) {
-        productStore.getProduct(productId)
+        var product = productRepository.findById(productId)
                 .orElseThrow(() -> new ProductNotFoundException(productId.toString()));
 
-        customerStore.getCustomer(customerId)
+        var customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new CustomerNotFoundException(customerId.toString()));
 
         validateCustomerHasProcessedProduct(customerId, productId);
 
         Review review = Review.builder()
                 .reviewId(UUID.randomUUID())
-                .productId(productId)
+                .product(product)
                 .customerId(customerId)
                 .rating(request.getRating())
                 .comment(request.getComment())
@@ -51,7 +54,7 @@ public class ReviewService {
 
         Review savedReview = reviewStore.createReview(review);
 
-        return mapToDto(savedReview);
+        return mapToDto(savedReview, customer);
     }
 
     private void validateCustomerHasProcessedProduct(UUID customerId, UUID productId) {
@@ -65,30 +68,10 @@ public class ReviewService {
         }
     }
 
-    private ReviewResponseDto mapToDto(Review review) {
-        Customer customer = customerStore.getCustomer(review.getCustomerId())
-                .orElseThrow(() -> new CustomerNotFoundException(review.getCustomerId().toString()));
-
-        var customerDto = mapToCustomerDto(customer);
-
-        return ReviewResponseDto.builder()
-                .reviewId(review.getReviewId())
-                .productId(review.getProductId())
-                .customer(customerDto)
-                .rating(review.getRating())
-                .comment(review.getComment())
-                .createdAt(review.getCreatedAt())
-                .build();
-    }
-
-    private CustomerResponseDto mapToCustomerDto(Customer customer) {
-        return CustomerResponseDto.builder()
-                .customerId(customer.getCustomerId())
-                .firstName(customer.getFirstName())
-                .lastName(customer.getLastName())
-                .email(customer.getUser().getEmail())
-                .createdAt(customer.getUser().getCreatedAt())
-                .build();
+    private ReviewResponseDto mapToDto(Review review, Customer customer) {
+        ReviewResponseDto dto = reviewMapper.toDTO(review);
+        dto.setCustomer(customerMapper.toDTO(customer));
+        return dto;
     }
 
     /**
@@ -96,13 +79,17 @@ public class ReviewService {
      * Validates product existence before fetching reviews. Each review includes customer details.
      */
     public List<ReviewResponseDto> getReviewsByProduct(UUID productId, int limit, int offset) {
-        productStore.getProduct(productId)
+        productRepository.findById(productId)
                 .orElseThrow(() -> new ProductNotFoundException(productId.toString()));
 
         List<Review> reviews = reviewStore.getReviewsByProduct(productId, limit, offset);
 
         return reviews.stream()
-                .map(this::mapToDto)
+                .map(review -> {
+                    Customer customer = customerRepository.findById(review.getCustomerId())
+                            .orElseThrow(() -> new CustomerNotFoundException(review.getCustomerId().toString()));
+                    return mapToDto(review, customer);
+                })
                 .toList();
     }
 }

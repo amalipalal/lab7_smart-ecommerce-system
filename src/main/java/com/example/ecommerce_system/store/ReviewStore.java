@@ -40,7 +40,7 @@ public class ReviewStore {
                 return review;
             } catch (DaoException e) {
                 conn.rollback();
-                throw new ReviewCreationException(review.getProductId().toString());
+                throw new ReviewCreationException(review.getProduct().getProductId().toString());
             }
         } catch (SQLException e) {
             throw new DatabaseConnectionException(e);

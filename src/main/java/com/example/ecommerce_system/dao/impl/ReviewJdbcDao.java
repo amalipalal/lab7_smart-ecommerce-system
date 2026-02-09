@@ -48,7 +48,7 @@ public class ReviewJdbcDao implements ReviewDao {
     private Review map(ResultSet rs) throws SQLException {
         return new Review(
                 rs.getObject("review_id", UUID.class),
-                rs.getObject("product_id", UUID.class),
+                null,
                 rs.getObject("customer_id", UUID.class),
                 rs.getInt("rating"),
                 rs.getString("comment"),
@@ -65,7 +65,7 @@ public class ReviewJdbcDao implements ReviewDao {
 
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setObject(1, review.getReviewId());
-            ps.setObject(2, review.getProductId());
+            ps.setObject(2, review.getProduct().getProductId());
             ps.setObject(3, review.getCustomerId());
             ps.setInt(4, review.getRating());
             ps.setString(5, review.getComment());

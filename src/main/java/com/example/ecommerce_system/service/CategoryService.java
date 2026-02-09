@@ -5,8 +5,13 @@ import com.example.ecommerce_system.dto.category.CategoryResponseDto;
 import com.example.ecommerce_system.exception.category.CategoryNotFoundException;
 import com.example.ecommerce_system.exception.category.DuplicateCategoryException;
 import com.example.ecommerce_system.model.Category;
+import com.example.ecommerce_system.repository.CategoryRepository;
 import com.example.ecommerce_system.store.CategoryStore;
+import com.example.ecommerce_system.util.mapper.CategoryMapper;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Example;
+import org.springframework.data.domain.ExampleMatcher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -18,14 +23,15 @@ import java.util.UUID;
 @Service
 public class CategoryService {
 
-    private final CategoryStore categoryStore;
+    private final CategoryMapper mapper;
+    private final CategoryRepository categoryRepository;
 
     /**
      * Create a new category with the provided name and description.
      * Validates that no category with the same name already exists before creation.
      */
     public CategoryResponseDto createCategory(CategoryRequestDto request) {
-        Optional<Category> existing = categoryStore.getCategoryByName(request.getName());
+        Optional<Category> existing = categoryRepository.findCategoryByName(request.getName());
         if (existing.isPresent()) throw new DuplicateCategoryException(request.getName());
         Category category = new Category(
                 UUID.randomUUID(),
@@ -34,8 +40,8 @@ public class CategoryService {
                 Instant.now(),
                 Instant.now()
         );
-        Category saved = categoryStore.createCategory(category);
-        return map(saved);
+        Category saved = categoryRepository.save(category);
+        return mapper.toDTO(saved);
     }
 
     private CategoryResponseDto map(Category category) {
@@ -53,10 +59,10 @@ public class CategoryService {
      * Validates that the category exists and the new name doesn't conflict with existing categories.
      */
     public CategoryResponseDto updateCategory(UUID id, CategoryRequestDto request) {
-        Category existingOption = categoryStore.getCategory(id).orElseThrow(
-                () -> new CategoryNotFoundException(id.toString()));
+        Category existingOption = categoryRepository.findById(id)
+                .orElseThrow(() -> new CategoryNotFoundException(id.toString()));
 
-        boolean isDuplicate = categoryStore.getCategoryByName(request.getName()).isPresent();
+        boolean isDuplicate = categoryRepository.findCategoryByName(request.getName()).isPresent();
         if (isDuplicate) throw new DuplicateCategoryException(request.getName());
 
         Category updated = new Category(
@@ -66,30 +72,45 @@ public class CategoryService {
                 existingOption.getCreatedAt(),
                 Instant.now()
         );
-        Category saved = categoryStore.updateCategory(updated);
-        return map(saved);
+        Category saved = categoryRepository.save(updated);
+        return mapper.toDTO(saved);
     }
 
     public CategoryResponseDto getCategory(UUID id) {
-        Category category = categoryStore.getCategory(id)
+        Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new CategoryNotFoundException(id.toString()));
-        return map(category);
+        return mapper.toDTO(category);
     }
 
     public CategoryResponseDto getCategory(String name) {
-        Category category = categoryStore.getCategoryByName(name)
+        Category category = categoryRepository.findCategoryByName(name)
                 .orElseThrow(() -> new CategoryNotFoundException(name));
-        return map(category);
+        return mapper.toDTO(category);
     }
 
+    /**
+     * Search for a category with name or description containing query.
+     */
     public List<CategoryResponseDto> getCategories(String query, int limit, int offset) {
-        List<Category> categories = categoryStore.searchByName(query, limit, offset);
-        return categories.stream().map(this::map).toList();
+        Category probe = new Category();
+        probe.setName(query);
+        probe.setDescription(query);
+
+        ExampleMatcher matcher = ExampleMatcher.matching()
+                .withIgnoreNullValues()
+                .withIgnoreCase()
+                .withStringMatcher(ExampleMatcher.StringMatcher.CONTAINING);
+
+        List<Category> categories = categoryRepository.findAll(
+                Example.of(probe, matcher),
+                PageRequest.of(offset, limit)
+        ).getContent();
+        return mapper.toDTOList(categories);
     }
 
     public List<CategoryResponseDto> getAllCategories(int limit, int offset) {
-        List<Category> categories = categoryStore.findAll(limit, offset);
-        return categories.stream().map(this::map).toList();
+        List<Category> categories = categoryRepository.findAll(PageRequest.of(offset, limit)).getContent();
+        return mapper.toDTOList(categories);
     }
 
     /**
@@ -97,7 +118,7 @@ public class CategoryService {
      * Validates that the category exists before deletion.
      */
     public void deleteCategory(UUID id) {
-        categoryStore.getCategory(id).orElseThrow(() -> new CategoryNotFoundException(id.toString()));
-        categoryStore.deleteCategory(id);
+        categoryRepository.findById(id).orElseThrow(() -> new CategoryNotFoundException(id.toString()));
+        categoryRepository.deleteById(id);
     }
 }

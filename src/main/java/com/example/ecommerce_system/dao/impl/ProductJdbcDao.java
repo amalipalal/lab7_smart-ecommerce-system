@@ -146,7 +146,7 @@ public class ProductJdbcDao implements ProductDao {
             ps.setString(3, product.getDescription());
             ps.setDouble(4, product.getPrice());
             ps.setInt(5, product.getStockQuantity());
-            ps.setObject(6, product.getCategoryId());
+            ps.setObject(6, product.getCategory().getCategoryId());
             ps.setTimestamp(7, Timestamp.from(product.getCreatedAt()));
             ps.setTimestamp(8, Timestamp.from(product.getUpdatedAt()));
 
@@ -163,7 +163,7 @@ public class ProductJdbcDao implements ProductDao {
             ps.setString(2, product.getDescription());
             ps.setDouble(3, product.getPrice());
             ps.setInt(4, product.getStockQuantity());
-            ps.setObject(5, product.getCategoryId());
+            ps.setObject(5, product.getCategory().getCategoryId());
             ps.setTimestamp(6, Timestamp.from(product.getUpdatedAt()));
             ps.setObject(7, product.getProductId());
 
@@ -200,13 +200,15 @@ public class ProductJdbcDao implements ProductDao {
     }
 
     private Product mapRowToProduct(ResultSet resultSet) throws SQLException {
-        return new Product(
+        return
+                new Product(
                 resultSet.getObject("product_id", UUID.class),
                 resultSet.getString("name"),
                 resultSet.getString("description"),
                 resultSet.getDouble("price"),
                 resultSet.getInt("stock_quantity"),
-                resultSet.getObject("category_id", UUID.class),
+                null,
+                null,
                 resultSet.getTimestamp("created_at").toInstant(),
                 resultSet.getTimestamp("updated_at").toInstant()
         );

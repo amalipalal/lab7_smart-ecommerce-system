@@ -1,14 +1,14 @@
 package com.example.ecommerce_system.dto.category;
 
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
-import lombok.experimental.SuperBuilder;
 
 import java.time.Instant;
 import java.util.UUID;
 
 @AllArgsConstructor
-@SuperBuilder
+@Builder
 @Data
 public class CategoryResponseDto {
     private final UUID categoryId;

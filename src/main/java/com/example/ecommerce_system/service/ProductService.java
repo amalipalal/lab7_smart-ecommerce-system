@@ -7,10 +7,15 @@ import com.example.ecommerce_system.dto.product.ProductWithReviewsDto;
 import com.example.ecommerce_system.dto.review.ReviewResponseDto;
 import com.example.ecommerce_system.exception.category.CategoryNotFoundException;
 import com.example.ecommerce_system.exception.product.ProductNotFoundException;
+import com.example.ecommerce_system.model.Category;
 import com.example.ecommerce_system.model.Product;
-import com.example.ecommerce_system.store.CategoryStore;
-import com.example.ecommerce_system.store.ProductStore;
+import com.example.ecommerce_system.repository.CategoryRepository;
+import com.example.ecommerce_system.repository.ProductRepository;
+import com.example.ecommerce_system.util.ProductSpecification;
+import com.example.ecommerce_system.util.mapper.ProductMapper;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -21,65 +26,54 @@ import java.util.UUID;
 @AllArgsConstructor
 public class ProductService {
 
-    private final ProductStore productStore;
-    private final CategoryStore categoryStore;
+    private final ProductRepository productRepository;
+    private final CategoryRepository categoryRepository;
     private final ReviewService reviewService;
-    private final CategoryService categoryService;
+    private final ProductMapper productMapper;
 
     /**
      * Create a new product.
      * Validates that the category exists before creating the product.
      */
     public ProductResponseDto createProduct(ProductRequestDto request) {
-        checkThatCategoryExists(request.getCategoryId());
+        var category = getCategory(request.getCategoryId());
 
-        Product product = new Product(
-                UUID.randomUUID(),
-                request.getName(),
-                request.getDescription(),
-                request.getPrice(),
-                request.getStock(),
-                request.getCategoryId(),
-                Instant.now(),
-                Instant.now()
-        );
-        Product saved = this.productStore.createProduct(product);
-        return map(saved);
-    }
-
-    private void checkThatCategoryExists(UUID categoryId) {
-        categoryStore.getCategory(categoryId).orElseThrow(
-                () -> new CategoryNotFoundException(categoryId.toString()));
-    }
-
-    private ProductResponseDto map(Product product) {
-        return ProductResponseDto.builder()
-                .productId(product.getProductId())
-                .categoryId(product.getCategoryId())
-                .name(product.getName())
-                .description(product.getDescription())
-                .price(product.getPrice())
-                .stock(product.getStockQuantity())
-                .updatedAt(product.getUpdatedAt())
+        Product product = Product.builder()
+                .productId(UUID.randomUUID())
+                .name(request.getName())
+                .description(request.getDescription())
+                .price(request.getPrice())
+                .stockQuantity(request.getStock())
+                .category(category)
+                .reviews(List.of())
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
                 .build();
+        var saved = productRepository.save(product);
+        return productMapper.toDTO(saved);
+    }
+
+    private Category getCategory(UUID categoryId) {
+        return categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new CategoryNotFoundException(categoryId.toString()));
     }
 
     public ProductResponseDto getProduct(UUID productId) {
-        Product product = this.productStore.getProduct(productId)
-                .orElseThrow(() -> new ProductNotFoundException(productId.toString()));
-        return map(product);
+        var product = retrieveProductFromRepository(productId);
+        return productMapper.toDTO(product);
+    }
+
+    private Product retrieveProductFromRepository(UUID id) {
+        return productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id.toString()));
     }
 
     /**
      * Retrieve all products with pagination.
      */
     public List<ProductResponseDto> getAllProducts(int limit, int offset) {
-        List<Product> products = this.productStore.getAllProducts(limit, offset);
-        return products.stream().map(this::map).toList();
-    }
-
-    public int countProductsByFilter(ProductFilter filter) {
-        return this.productStore.countProductsByFilter(filter);
+        List<Product> products = productRepository.findAll(PageRequest.of(offset, limit)).getContent();
+        return productMapper.toDTOList(products);
     }
 
     /**
@@ -87,17 +81,17 @@ public class ProductService {
      * Validates that the product exists before deletion.
      */
     public void deleteProduct(UUID productId) {
-        Product existing = this.productStore.getProduct(productId).orElseThrow(
-                () -> new ProductNotFoundException(productId.toString()));
-        this.productStore.deleteProduct(existing.getProductId());
+        var existing = retrieveProductFromRepository(productId);
+        productRepository.deleteById(existing.getProductId());
     }
 
     /**
      * Search for products using a filter with pagination.
      */
     public List<ProductResponseDto> searchProducts(ProductFilter filter, int limit, int offset) {
-        List<Product> products = this.productStore.searchProducts(filter, limit, offset);
-        return products.stream().map(this::map).toList();
+        Specification<Product> spec = ProductSpecification.buildSpecification(filter);
+        List<Product> products = productRepository.findAll(spec, PageRequest.of(offset, limit)).getContent();
+        return productMapper.toDTOList(products);
     }
 
     /**
@@ -105,22 +99,22 @@ public class ProductService {
      * Validates product existence and merges provided fields with existing values.
      */
     public ProductResponseDto updateProduct(UUID productId, ProductRequestDto request) {
-        Product existing = this.productStore.getProduct(productId)
-                .orElseThrow(() -> new ProductNotFoundException(productId.toString()));
+        var existingProduct = retrieveProductFromRepository(productId);
 
-        Product updated = new Product(
-                existing.getProductId(),
-                request.getName() != null ? request.getName() : existing.getName(),
-                request.getDescription() != null ? request.getDescription() : existing.getDescription(),
-                request.getPrice() != null ? request.getPrice() : existing.getPrice(),
-                request.getStock() != null ? request.getStock() : existing.getStockQuantity(),
-                request.getCategoryId() != null ? request.getCategoryId() : existing.getCategoryId(),
-                existing.getCreatedAt(),
-                Instant.now()
-        );
+        Product updated = Product.builder()
+                .productId(existingProduct.getProductId())
+                .name(request.getName() != null ? request.getName() : existingProduct.getName())
+                .description(request.getDescription() != null ? request.getDescription() : existingProduct.getDescription())
+                .price(request.getPrice() != null ? request.getPrice() : existingProduct.getPrice())
+                .stockQuantity(request.getStock() != null ? request.getStock() : existingProduct.getStockQuantity())
+                .category(request.getCategoryId() != null ? getCategory(request.getCategoryId()) : existingProduct.getCategory())
+                .reviews(existingProduct.getReviews())
+                .createdAt(existingProduct.getCreatedAt())
+                .updatedAt(Instant.now())
+                .build();
 
-        this.productStore.updateProduct(updated);
-        return map(updated);
+        productRepository.save(updated);
+        return productMapper.toDTO(updated);
     }
 
     /**
@@ -128,27 +122,16 @@ public class ProductService {
      * Each product includes a limited number of reviews based on reviewLimit parameter.
      */
     public List<ProductWithReviewsDto> getAllProductsWithReviews(int limit, int offset, int reviewLimit) {
-        List<Product> products = this.productStore.getAllProducts(limit, offset);
+        List<Product> products = productRepository.findAll(PageRequest.of(offset, limit)).getContent();
         return products.stream().map(product -> {
             List<ReviewResponseDto> reviews = reviewService.getReviewsByProduct(
                     product.getProductId(),
                     reviewLimit,
                     0
             );
-            return mapToProductWithReviews(product, reviews);
+            ProductWithReviewsDto dto = productMapper.toProductWithReviewsDTO(product);
+            dto.setReviews(reviews);
+            return dto;
         }).toList();
-    }
-
-    private ProductWithReviewsDto mapToProductWithReviews(Product product, List<ReviewResponseDto> reviews) {
-        return ProductWithReviewsDto.builder()
-                .productId(product.getProductId())
-                .category(categoryService.getCategory(product.getCategoryId()))
-                .name(product.getName())
-                .description(product.getDescription())
-                .price(product.getPrice())
-                .stock(product.getStockQuantity())
-                .updatedAt(product.getUpdatedAt())
-                .reviews(reviews)
-                .build();
     }
 }
