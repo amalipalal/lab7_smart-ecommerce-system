@@ -1,6 +1,6 @@
 package com.example.ecommerce_system.dto.orders;
 
-import com.example.ecommerce_system.model.OrderStatus;
+import com.example.ecommerce_system.enums.OrderStatusType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -19,7 +19,7 @@ public class OrderRequestDto {
             groups = UpdateOrderRequest.class,
             message = "status is required and cannot be empty"
     )
-    private OrderStatus status;
+    private OrderStatusType status;
 
     @NotBlank(
             groups = CreateOrderRequest.class,

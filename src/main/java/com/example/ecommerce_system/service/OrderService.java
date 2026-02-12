@@ -3,106 +3,120 @@ package com.example.ecommerce_system.service;
 import com.example.ecommerce_system.dto.orders.OrderItemDto;
 import com.example.ecommerce_system.dto.orders.OrderRequestDto;
 import com.example.ecommerce_system.dto.orders.OrderResponseDto;
+import com.example.ecommerce_system.enums.OrderStatusType;
 import com.example.ecommerce_system.exception.customer.CustomerNotFoundException;
+import com.example.ecommerce_system.exception.order.InvalidOrderCancellationException;
 import com.example.ecommerce_system.exception.order.InvalidOrderStatusException;
 import com.example.ecommerce_system.exception.order.OrderDoesNotExist;
+import com.example.ecommerce_system.exception.order.OrderStatusConfigurationException;
+import com.example.ecommerce_system.exception.order.OrderStatusNotFoundException;
 import com.example.ecommerce_system.exception.product.InsufficientProductStock;
 import com.example.ecommerce_system.exception.product.ProductNotFoundException;
 import com.example.ecommerce_system.model.*;
-import com.example.ecommerce_system.store.CustomerStore;
-import com.example.ecommerce_system.store.OrdersStore;
-import com.example.ecommerce_system.store.ProductStore;
+import com.example.ecommerce_system.repository.*;
+import com.example.ecommerce_system.util.mapper.OrderMapper;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import static com.example.ecommerce_system.enums.OrderStatusType.CANCELLED;
+import static com.example.ecommerce_system.enums.OrderStatusType.PROCESSED;
+
 @AllArgsConstructor
 @Service
 public class OrderService {
-    private OrdersStore orderStore;
-    private CustomerStore customerStore;
-    private ProductStore productStore;
+
+    private OrderRepository orderRepository;
+    private OrderStatusRepository orderStatusRepository;
+    private OrderItemRepository orderItemRepository;
+    private CustomerRepository customerRepository;
+    private ProductRepository productRepository;
+
+    private OrderMapper orderMapper;
 
     /**
      * Places a new order for the specified customer.
-     * Validates order items, checks product availability and stock, calculates total amount, and creates the order with PENDING status.
+     * Validates order items, checks product availability and stock, calculates total amount,
+     * and creates the order with PENDING status.
      */
+    @Transactional
     public OrderResponseDto placeOrder(OrderRequestDto request, UUID userId) {
-        var customer = customerStore.getCustomerByUserId(userId).orElseThrow(
-                () -> new CustomerNotFoundException(userId.toString()));
-
+        var customer = checkIfCustomerExists(userId);
         var orderId = UUID.randomUUID();
 
-        List<OrderItem> items = validateOrderItems(request.getItems(), orderId);
+        var status = orderStatusRepository.findOrderStatusByStatusName(OrderStatusType.PENDING)
+                .orElseThrow(() -> new OrderStatusNotFoundException(OrderStatusType.PENDING.name()));
+
+        List<OrderItem> items = validateOrderItems(request.getItems());
         double totalAmount = items.stream()
                 .mapToDouble(item -> item.getPriceAtPurchase() * item.getQuantity())
                 .sum();
 
-        Orders newOrder = createOrder(orderId, request, customer.getCustomerId(), totalAmount);
+        Orders newOrder = createOrder(orderId, request, customer, totalAmount, status);
+        Orders savedOrder = orderRepository.save(newOrder);
 
-        Orders savedOrder = orderStore.createOrder(newOrder, items);
-
-        return map(savedOrder, items);
+        saveOrderItems(savedOrder, items);
+        return orderMapper.toDto(savedOrder);
     }
 
-    private List<OrderItem> validateOrderItems(List<OrderItemDto> orderedItems, UUID orderId) {
+    private void saveOrderItems(Orders savedOrder, List<OrderItem> items) {
+        for (OrderItem item : items) {
+            item.setOrder(savedOrder);
+            orderItemRepository.save(item);
+        }
+
+        savedOrder.setOrderItems(items);
+    }
+
+    private Customer checkIfCustomerExists(UUID userId) {
+        return customerRepository
+                .findCustomerByUser_UserId(userId)
+                .orElseThrow(() -> new CustomerNotFoundException(userId.toString()));
+    }
+
+    private List<OrderItem> validateOrderItems(List<OrderItemDto> orderedItems) {
         return orderedItems.stream()
                 .map(itemDto -> {
                     var productId = itemDto.getProductId();
+                    var product = productRepository.findById(productId)
+                            .orElseThrow(() -> new ProductNotFoundException(productId.toString()));
 
-                    Product product = productStore.getProduct(productId).orElseThrow(
-                            () -> new ProductNotFoundException(productId.toString()));
-
-                    if(product.getStockQuantity() < itemDto.getQuantity())
+                    if (product.getStockQuantity() < itemDto.getQuantity()) {
                         throw new InsufficientProductStock(productId.toString());
+                    }
 
                     return OrderItem.builder()
                             .orderItemId(UUID.randomUUID())
-                            .orderId(orderId)
-                            .priceAtPurchase(product.getPrice())
+                            .product(product)
                             .quantity(itemDto.getQuantity())
-                            .productId(productId)
+                            .priceAtPurchase(product.getPrice())
                             .build();
-
-                }).toList();
+                })
+                .toList();
     }
 
-    private Orders createOrder(UUID orderId, OrderRequestDto request, UUID customerId, double totalAmount) {
+    private Orders createOrder(
+            UUID orderId,
+            OrderRequestDto request,
+            Customer customer,
+            double totalAmount,
+            OrderStatus status
+    ) {
         return Orders.builder()
                 .orderId(orderId)
+                .customer(customer)
                 .orderDate(Instant.now())
                 .shippingCity(request.getCity())
                 .shippingCountry(request.getCountry())
-                .customerId(customerId)
                 .shippingPostalCode(request.getPostalCode())
                 .totalAmount(totalAmount)
-                .status(OrderStatus.PENDING)
-                .build();
-    }
-
-    private OrderResponseDto map(Orders order, List<OrderItem> items) {
-        var itemsDto = items.stream().map(this::mapToOrderItemDto).toList();
-        return OrderResponseDto.builder()
-                .orderId(order.getOrderId())
-                .items(itemsDto)
-                .orderDate(order.getOrderDate())
-                .status(order.getStatus())
-                .shippingCity(order.getShippingCity())
-                .shippingCountry(order.getShippingCountry())
-                .shippingPostalCode(order.getShippingPostalCode())
-                .totalAmount(order.getTotalAmount())
-                .build();
-    }
-
-    private OrderItemDto mapToOrderItemDto(OrderItem item) {
-        return OrderItemDto.builder()
-                .orderItemId(item.getOrderItemId())
-                .price(item.getPriceAtPurchase())
-                .productId(item.getProductId())
-                .quantity(item.getQuantity())
+                .status(status)
                 .build();
     }
 
@@ -110,11 +124,9 @@ public class OrderService {
      * Retrieves an order and its items by order ID.
      */
     public OrderResponseDto getOrder(UUID orderId) {
-        Orders order = orderStore.getOrder(orderId).orElseThrow(
+        Orders order = orderRepository.findById(orderId).orElseThrow(
                 () -> new OrderDoesNotExist(orderId.toString()));
-        List<OrderItem> items = orderStore.getOrderItemsByOrderId(orderId);
-
-        return map(order, items);
+        return orderMapper.toDto(order);
     }
 
     /**
@@ -122,119 +134,84 @@ public class OrderService {
      * Each order includes its associated items.
      */
     public List<OrderResponseDto> getAllOrders(int limit, int offset) {
-        List<Orders> orders = orderStore.getAllOrders(limit, offset);
-        return orders.stream()
-                .map(order -> {
-                    List<OrderItem> items = orderStore.getOrderItemsByOrderId(order.getOrderId());
-                    return map(order, items);
-                })
-                .toList();
+        PageRequest pageRequest = PageRequest.of(
+                offset,
+                limit,
+                Sort.by("orderDate").descending()
+        );
+        List<Orders> orders = orderRepository.findAll(pageRequest).getContent();
+        return orderMapper.toDtoList(orders);
     }
 
-    /**
-     * Retrieves all orders for a customer with pagination.
-     * Validates customer existence before fetching orders.
-     */
     public List<OrderResponseDto> getCustomerOrders(UUID customerId, int limit, int offset) {
-        customerStore.getCustomer(customerId).orElseThrow(
+        customerRepository.findById(customerId).orElseThrow(
                 () -> new CustomerNotFoundException(customerId.toString()));
 
-        List<Orders> orders = orderStore.getCustomerOrders(customerId, limit, offset);
-        return orders.stream()
-                .map(order -> {
-                    List<OrderItem> items = orderStore.getOrderItemsByOrderId(order.getOrderId());
-                    return map(order, items);
-                })
-                .toList();
+        PageRequest pageRequest = PageRequest.of(
+                offset,
+                limit,
+                Sort.by("orderDate").descending()
+        );
+        List<Orders> orders = orderRepository.findAllByCustomer_CustomerId(
+                customerId,
+                pageRequest
+        );
+        return orderMapper.toDtoList(orders);
     }
 
-    /**
-     * Updates the status of an order.
-     * For PROCESSED status: validates stock availability and deducts product quantities.
-     * For CANCELLED status: only allows cancellation if order is PENDING.
-     */
+    @Transactional
     public OrderResponseDto updateOrderStatus(UUID orderId, OrderRequestDto request) {
-        Orders existingOrder = orderStore.getOrder(orderId).orElseThrow(
-                () -> new OrderDoesNotExist(orderId.toString()));
+        Orders existingOrder = orderRepository.findById(orderId)
+                .orElseThrow(() -> new OrderDoesNotExist(orderId.toString()));
 
         Orders updatedOrder = switch (request.getStatus()) {
-            case PROCESSED -> processOrder(existingOrder, orderId);
+            case PROCESSED -> processOrder(existingOrder);
             case CANCELLED -> cancelOrder(existingOrder);
             default -> throw new InvalidOrderStatusException("this status is not allowed");
         };
 
-        if (request.getStatus() == OrderStatus.CANCELLED) return buildOrderResponseWithoutItems(updatedOrder);
-
-        List<OrderItem> items = orderStore.getOrderItemsByOrderId(orderId);
-        return map(updatedOrder, items);
+        return orderMapper.toDto(updatedOrder);
     }
 
-    private Orders processOrder(Orders existingOrder, UUID orderId) {
-        if (existingOrder.getStatus() == OrderStatus.PROCESSED) return existingOrder;
+    private Orders processOrder(Orders existingOrder) {
+        if (existingOrder.getStatus().getStatusName() == PROCESSED)
+            return existingOrder;
 
-        List<OrderItem> items = orderStore.getOrderItemsByOrderId(orderId);
-        List<UUID> productIds = items.stream().map(OrderItem::getProductId).toList();
-        List<Integer> quantities = items.stream().map(OrderItem::getQuantity).toList();
+        for (OrderItem item : existingOrder.getOrderItems()) {
+            Product product = item.getProduct();
+            int newStock = product.getStockQuantity() - item.getQuantity();
+            if (newStock < 0) throw new InsufficientProductStock(product.getProductId().toString());
 
-        List<Integer> newStocks = validateAndCalculateNewStocks(productIds, quantities);
-
-        productStore.updateProductStocks(productIds, newStocks);
-
-        Orders processedOrder = buildOrderWithNewStatus(existingOrder, OrderStatus.PROCESSED);
-        return orderStore.updateOrder(processedOrder);
-    }
-
-    private List<Integer> validateAndCalculateNewStocks(List<UUID> productIds, List<Integer> quantities) {
-        List<Integer> newStocks = new java.util.ArrayList<>();
-
-        for (int i = 0; i < productIds.size(); i++) {
-            UUID productId = productIds.get(i);
-            int quantityToDeduct = quantities.get(i);
-
-            Product product = productStore.getProduct(productId)
-                    .orElseThrow(() -> new ProductNotFoundException(productId.toString()));
-
-            int newStock = product.getStockQuantity() - quantityToDeduct;
-            if (newStock < 0) throw new InsufficientProductStock(productId.toString());
-
-            newStocks.add(newStock);
+            product.setStockQuantity(newStock);
+            productRepository.save(product);
         }
 
-        return newStocks;
+        Orders processedOrder = buildOrderWithNewStatus(existingOrder, PROCESSED);
+        return orderRepository.save(processedOrder);
     }
 
     private Orders cancelOrder(Orders existingOrder) {
-        if (existingOrder.getStatus() != OrderStatus.PENDING) {
-            throw new IllegalStateException("Only pending orders can be cancelled");
-        }
+        if (existingOrder.getStatus().getStatusName() != OrderStatusType.PENDING)
+            throw new InvalidOrderCancellationException("Only pending orders can be cancelled");
 
-        Orders cancelledOrder = buildOrderWithNewStatus(existingOrder, OrderStatus.CANCELLED);
-        return orderStore.updateOrder(cancelledOrder);
+        Orders cancelledOrder = buildOrderWithNewStatus(existingOrder, CANCELLED);
+        return orderRepository.save(cancelledOrder);
     }
 
-    private Orders buildOrderWithNewStatus(Orders existingOrder, OrderStatus newStatus) {
+    private Orders buildOrderWithNewStatus(Orders existingOrder, OrderStatusType newStatus) {
+        var status = orderStatusRepository.findOrderStatusByStatusName(newStatus)
+                .orElseThrow(() -> new OrderStatusConfigurationException(newStatus.name()));
+
         return Orders.builder()
                 .orderId(existingOrder.getOrderId())
-                .customerId(existingOrder.getCustomerId())
+                .customer(existingOrder.getCustomer())
                 .orderDate(existingOrder.getOrderDate())
+                .orderItems(existingOrder.getOrderItems())
                 .totalAmount(existingOrder.getTotalAmount())
                 .shippingCountry(existingOrder.getShippingCountry())
                 .shippingCity(existingOrder.getShippingCity())
                 .shippingPostalCode(existingOrder.getShippingPostalCode())
-                .status(newStatus)
-                .build();
-    }
-
-    private OrderResponseDto buildOrderResponseWithoutItems(Orders order) {
-        return OrderResponseDto.builder()
-                .orderId(order.getOrderId())
-                .orderDate(order.getOrderDate())
-                .status(order.getStatus())
-                .shippingCity(order.getShippingCity())
-                .shippingCountry(order.getShippingCountry())
-                .shippingPostalCode(order.getShippingPostalCode())
-                .totalAmount(order.getTotalAmount())
-                .items(null)
+                .status(status)
                 .build();
     }
 }

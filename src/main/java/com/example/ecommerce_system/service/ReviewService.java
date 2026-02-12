@@ -8,8 +8,8 @@ import com.example.ecommerce_system.exception.review.CustomerHasNotOrderedProduc
 import com.example.ecommerce_system.model.Customer;
 import com.example.ecommerce_system.model.Review;
 import com.example.ecommerce_system.repository.CustomerRepository;
+import com.example.ecommerce_system.repository.OrderRepository;
 import com.example.ecommerce_system.repository.ProductRepository;
-import com.example.ecommerce_system.store.OrdersStore;
 import com.example.ecommerce_system.store.ReviewStore;
 import com.example.ecommerce_system.util.mapper.CustomerMapper;
 import com.example.ecommerce_system.util.mapper.ReviewMapper;
@@ -26,7 +26,7 @@ public class ReviewService {
     private final ReviewStore reviewStore;
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
-    private final OrdersStore ordersStore;
+    private final OrderRepository orderRepository;
     private final ReviewMapper reviewMapper;
     private final CustomerMapper customerMapper;
 
@@ -58,7 +58,7 @@ public class ReviewService {
     }
 
     private void validateCustomerHasProcessedProduct(UUID customerId, UUID productId) {
-        boolean hasProcessedOrder = ordersStore.hasProcessedOrderWithProduct(customerId, productId);
+        boolean hasProcessedOrder = orderRepository.hasProcessedOrderWithProduct(customerId, productId);
 
         if (!hasProcessedOrder) {
             throw new CustomerHasNotOrderedProductException(

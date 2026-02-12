@@ -50,8 +50,8 @@ public class OrderItemJdbcDao implements OrderItemDao {
     public void save(Connection connection, OrderItem orderItem) throws DaoException {
         try (PreparedStatement ps = connection.prepareStatement(SAVE)) {
             ps.setObject(1, orderItem.getOrderItemId());
-            ps.setObject(2, orderItem.getOrderId());
-            ps.setObject(3, orderItem.getProductId());
+            ps.setObject(2, orderItem.getOrder().getOrderId());
+            ps.setObject(3, orderItem.getProduct().getProductId());
             ps.setInt(4, orderItem.getQuantity());
             ps.setDouble(5, orderItem.getPriceAtPurchase());
             ps.executeUpdate();
@@ -65,8 +65,8 @@ public class OrderItemJdbcDao implements OrderItemDao {
         try (PreparedStatement ps = connection.prepareStatement(SAVE)) {
             for (OrderItem orderItem : orderItems) {
                 ps.setObject(1, orderItem.getOrderItemId());
-                ps.setObject(2, orderItem.getOrderId());
-                ps.setObject(3, orderItem.getProductId());
+                ps.setObject(2, orderItem.getOrder().getOrderId());
+                ps.setObject(3, orderItem.getProduct().getProductId());
                 ps.setInt(4, orderItem.getQuantity());
                 ps.setDouble(5, orderItem.getPriceAtPurchase());
                 ps.addBatch();
@@ -80,8 +80,8 @@ public class OrderItemJdbcDao implements OrderItemDao {
     private OrderItem map(ResultSet rs) throws SQLException {
         return OrderItem.builder()
                 .orderItemId(rs.getObject("order_item_id", UUID.class))
-                .orderId(rs.getObject("order_id", UUID.class))
-                .productId(rs.getObject("product_id", UUID.class))
+                .order(null)
+                .product(null)
                 .quantity(rs.getInt("quantity"))
                 .priceAtPurchase(rs.getDouble("price_at_purchase"))
                 .build();

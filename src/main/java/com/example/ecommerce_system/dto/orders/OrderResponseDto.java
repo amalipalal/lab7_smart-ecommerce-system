@@ -1,6 +1,5 @@
 package com.example.ecommerce_system.dto.orders;
 
-import com.example.ecommerce_system.model.OrderStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,7 +13,7 @@ import java.util.UUID;
 @Data
 public class OrderResponseDto {
     private UUID orderId;
-    private OrderStatus status;
+    private String status;
     private Instant orderDate;
     private double totalAmount;
     private String shippingCountry;

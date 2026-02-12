@@ -74,13 +74,14 @@ public class OrdersJdbcDao implements OrdersDao {
     private Orders map(ResultSet rs) throws SQLException {
         return new Orders(
                 rs.getObject("order_id", UUID.class),
-                rs.getObject("customer_id", UUID.class),
-                OrderStatus.valueOf(rs.getString("status_name").toUpperCase()),
+                null,
+                null,
                 rs.getTimestamp("order_date").toInstant(),
                 rs.getDouble("total_amount"),
                 rs.getString("shipping_country"),
                 rs.getString("shipping_city"),
-                rs.getString("shipping_postal_code")
+                rs.getString("shipping_postal_code"),
+                null
         );
     }
 
@@ -125,8 +126,8 @@ public class OrdersJdbcDao implements OrdersDao {
     public void save(Connection conn, Orders order) throws DaoException {
         try (PreparedStatement ps = conn.prepareStatement(SAVE)) {
             ps.setObject(1, order.getOrderId());
-            ps.setObject(2, order.getCustomerId());
-            ps.setString(3, order.getStatus().name().toUpperCase());
+            ps.setObject(2, order.getCustomer().getCustomerId());
+            ps.setString(3, order.getStatus().getStatusName().name().toUpperCase());
             ps.setTimestamp(4, Timestamp.from(order.getOrderDate()));
             ps.setDouble(5, order.getTotalAmount());
             ps.setString(6, order.getShippingCountry());
@@ -141,7 +142,7 @@ public class OrdersJdbcDao implements OrdersDao {
     @Override
     public void update(Connection conn, Orders order) throws DaoException {
         try (PreparedStatement ps = conn.prepareStatement(UPDATE)) {
-            ps.setString(1, order.getStatus().name());
+            ps.setString(1, order.getStatus().getStatusName().name());
             ps.setObject(2, order.getOrderId());
             int rowsAffected = ps.executeUpdate();
             if (rowsAffected == 0) {
