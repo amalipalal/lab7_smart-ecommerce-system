@@ -6,14 +6,16 @@ import com.example.ecommerce_system.exception.customer.CustomerNotFoundException
 import com.example.ecommerce_system.exception.product.ProductNotFoundException;
 import com.example.ecommerce_system.exception.review.CustomerHasNotOrderedProductException;
 import com.example.ecommerce_system.model.Customer;
+import com.example.ecommerce_system.model.Product;
 import com.example.ecommerce_system.model.Review;
 import com.example.ecommerce_system.repository.CustomerRepository;
 import com.example.ecommerce_system.repository.OrderRepository;
 import com.example.ecommerce_system.repository.ProductRepository;
-import com.example.ecommerce_system.store.ReviewStore;
-import com.example.ecommerce_system.util.mapper.CustomerMapper;
+import com.example.ecommerce_system.repository.ReviewRepository;
 import com.example.ecommerce_system.util.mapper.ReviewMapper;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -23,38 +25,44 @@ import java.util.UUID;
 @Service
 @AllArgsConstructor
 public class ReviewService {
-    private final ReviewStore reviewStore;
+    private final ReviewRepository reviewRepository;
     private final ProductRepository productRepository;
     private final CustomerRepository customerRepository;
     private final OrderRepository orderRepository;
+
     private final ReviewMapper reviewMapper;
-    private final CustomerMapper customerMapper;
 
     /**
      * Create a new review for a product.
      * Validates that the product exists, the customer exists, and the customer has ordered and received (PROCESSED status) the product.
      */
     public ReviewResponseDto createReview(UUID productId, UUID userId, ReviewRequestDto request) {
-        var product = productRepository.findById(productId)
-                .orElseThrow(() -> new ProductNotFoundException(productId.toString()));
-
-        var customer = customerRepository.findCustomerByUser_UserId(userId)
-                .orElseThrow(() -> new CustomerNotFoundException(userId.toString()));
+        var product = checkThatProductExists(productId);
+        var customer = checkThatCustomerExists(userId);
 
         validateCustomerHasProcessedProduct(customer.getCustomerId(), productId);
 
         Review review = Review.builder()
                 .reviewId(UUID.randomUUID())
                 .product(product)
-                .customerId(customer.getCustomerId())
+                .customer(customer)
                 .rating(request.getRating())
                 .comment(request.getComment())
                 .createdAt(Instant.now())
                 .build();
 
-        Review savedReview = reviewStore.createReview(review);
+        Review savedReview = reviewRepository.save(review);
+        return reviewMapper.toDTO(savedReview);
+    }
 
-        return mapToDto(savedReview, customer);
+    private Customer checkThatCustomerExists(UUID userId) {
+        return customerRepository.findCustomerByUser_UserId(userId)
+                .orElseThrow(() -> new CustomerNotFoundException(userId.toString()));
+    }
+
+    private Product checkThatProductExists(UUID productId) {
+        return productRepository.findById(productId)
+                .orElseThrow(() -> new ProductNotFoundException(productId.toString()));
     }
 
     private void validateCustomerHasProcessedProduct(UUID customerId, UUID productId) {
@@ -68,28 +76,35 @@ public class ReviewService {
         }
     }
 
-    private ReviewResponseDto mapToDto(Review review, Customer customer) {
-        ReviewResponseDto dto = reviewMapper.toDTO(review);
-        dto.setCustomer(customerMapper.toDTO(customer));
-        return dto;
-    }
-
     /**
      * Retrieve paginated reviews for a specific product.
      * Validates product existence before fetching reviews. Each review includes customer details.
      */
     public List<ReviewResponseDto> getReviewsByProduct(UUID productId, int limit, int offset) {
-        productRepository.findById(productId)
-                .orElseThrow(() -> new ProductNotFoundException(productId.toString()));
+        checkThatProductExists(productId);
+        PageRequest pageRequest = PageRequest.of(
+                offset,
+                limit,
+                Sort.by("createdAt").descending()
+        );
+        List<Review> reviews =  reviewRepository.findAllByProduct_ProductId(productId, pageRequest).getContent();
+        return reviewMapper.toDTOList(reviews);
+    }
 
-        List<Review> reviews = reviewStore.getReviewsByProduct(productId, limit, offset);
+    /**
+     * Retrieve paginated reviews made by a specific customer.
+     * Validates customer existence before fetching reviews.
+     */
+    public List<ReviewResponseDto> getReviewsByCustomer(UUID customerId, int limit, int offset) {
+        var customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new CustomerNotFoundException(customerId.toString()));
 
-        return reviews.stream()
-                .map(review -> {
-                    Customer customer = customerRepository.findById(review.getCustomerId())
-                            .orElseThrow(() -> new CustomerNotFoundException(review.getCustomerId().toString()));
-                    return mapToDto(review, customer);
-                })
-                .toList();
+        PageRequest pageRequest = PageRequest.of(
+                offset,
+                limit,
+                Sort.by("createdAt").descending()
+        );
+        List<Review> reviews = reviewRepository.findAllByCustomer_CustomerId(customer.getCustomerId(), pageRequest).getContent();
+        return reviewMapper.toDTOList(reviews);
     }
 }

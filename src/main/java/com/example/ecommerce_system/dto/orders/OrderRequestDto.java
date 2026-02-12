@@ -1,6 +1,6 @@
 package com.example.ecommerce_system.dto.orders;
 
-import com.example.ecommerce_system.enums.OrderStatusType;
+import com.example.ecommerce_system.model.OrderStatusType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;

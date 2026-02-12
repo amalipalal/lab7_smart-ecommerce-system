@@ -1,4 +1,4 @@
-package com.example.ecommerce_system.enums;
+package com.example.ecommerce_system.model;
 
 public enum OrderStatusType {
     PENDING,

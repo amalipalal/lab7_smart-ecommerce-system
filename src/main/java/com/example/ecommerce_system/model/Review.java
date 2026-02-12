@@ -24,12 +24,14 @@ public class Review {
     @JoinColumn(name = "product_id")
     private Product product;
 
-    private UUID customerId;
+    @ManyToOne
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
 
     private Integer rating;
 
     private String comment;
 
-    @Column(name = "createdAt")
+    @Column(name = "created_at")
     private Instant createdAt;
 }

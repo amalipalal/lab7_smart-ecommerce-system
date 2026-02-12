@@ -3,7 +3,7 @@ package com.example.ecommerce_system;
 import com.example.ecommerce_system.dto.orders.OrderItemDto;
 import com.example.ecommerce_system.dto.orders.OrderRequestDto;
 import com.example.ecommerce_system.dto.orders.OrderResponseDto;
-import com.example.ecommerce_system.enums.OrderStatusType;
+import com.example.ecommerce_system.model.OrderStatusType;
 import com.example.ecommerce_system.exception.customer.CustomerNotFoundException;
 import com.example.ecommerce_system.exception.order.InvalidOrderCancellationException;
 import com.example.ecommerce_system.exception.order.InvalidOrderStatusException;

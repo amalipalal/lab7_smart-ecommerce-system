@@ -4,7 +4,9 @@ import com.example.ecommerce_system.config.RequireAdmin;
 import com.example.ecommerce_system.dto.SuccessResponseDto;
 import com.example.ecommerce_system.dto.customer.CustomerRequestDto;
 import com.example.ecommerce_system.dto.customer.CustomerResponseDto;
+import com.example.ecommerce_system.dto.review.ReviewResponseDto;
 import com.example.ecommerce_system.service.CustomerService;
+import com.example.ecommerce_system.service.ReviewService;
 import com.example.ecommerce_system.util.handler.SuccessResponseHandler;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -26,6 +28,7 @@ import java.util.UUID;
 @RequireAdmin
 public class CustomerAdminController {
     private final CustomerService customerService;
+    private final ReviewService reviewService;
 
     @Operation(summary = "Retrieve all customers")
     @ApiResponses({
@@ -82,5 +85,20 @@ public class CustomerAdminController {
 
         var customerUpdated = customerService.updateCustomer(id, update);
         return SuccessResponseHandler.generateSuccessResponse(HttpStatus.OK, customerUpdated);
+    }
+
+    @Operation(summary = "Retrieve all reviews made by a specific customer")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Customer reviews retrieved"),
+            @ApiResponse(responseCode = "404", description = "Customer not found")
+    })
+    @GetMapping("/{id}/reviews")
+    public SuccessResponseDto<List<ReviewResponseDto>> getCustomerReviews(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "10") @Min(1) int limit,
+            @RequestParam(defaultValue = "0") @Min(0) int offset
+    ) {
+        List<ReviewResponseDto> reviews = reviewService.getReviewsByCustomer(id, limit, offset);
+        return SuccessResponseHandler.generateSuccessResponse(HttpStatus.OK, reviews);
     }
 }

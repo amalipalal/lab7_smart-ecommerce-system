@@ -1,6 +1,5 @@
 package com.example.ecommerce_system.model;
 
-import com.example.ecommerce_system.enums.OrderStatusType;
 import jakarta.persistence.*;
 import lombok.*;
 

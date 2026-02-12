@@ -7,11 +7,11 @@ import org.mapstruct.Mapping;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", uses = CustomerMapper.class)
 public interface ReviewMapper {
 
     @Mapping(source = "product.productId", target = "productId")
-    @Mapping(target = "customer", ignore = true)
+    @Mapping(source = "customer", target = "customer")
     ReviewResponseDto toDTO(Review review);
 
     List<ReviewResponseDto> toDTOList(List<Review> reviews);

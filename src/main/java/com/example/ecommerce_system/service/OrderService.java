@@ -3,7 +3,7 @@ package com.example.ecommerce_system.service;
 import com.example.ecommerce_system.dto.orders.OrderItemDto;
 import com.example.ecommerce_system.dto.orders.OrderRequestDto;
 import com.example.ecommerce_system.dto.orders.OrderResponseDto;
-import com.example.ecommerce_system.enums.OrderStatusType;
+import com.example.ecommerce_system.model.OrderStatusType;
 import com.example.ecommerce_system.exception.customer.CustomerNotFoundException;
 import com.example.ecommerce_system.exception.order.InvalidOrderCancellationException;
 import com.example.ecommerce_system.exception.order.InvalidOrderStatusException;
@@ -25,8 +25,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import static com.example.ecommerce_system.enums.OrderStatusType.CANCELLED;
-import static com.example.ecommerce_system.enums.OrderStatusType.PROCESSED;
+import static com.example.ecommerce_system.model.OrderStatusType.CANCELLED;
+import static com.example.ecommerce_system.model.OrderStatusType.PROCESSED;
 
 @AllArgsConstructor
 @Service

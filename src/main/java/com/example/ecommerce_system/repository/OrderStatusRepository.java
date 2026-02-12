@@ -1,6 +1,6 @@
 package com.example.ecommerce_system.repository;
 
-import com.example.ecommerce_system.enums.OrderStatusType;
+import com.example.ecommerce_system.model.OrderStatusType;
 import com.example.ecommerce_system.model.OrderStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 

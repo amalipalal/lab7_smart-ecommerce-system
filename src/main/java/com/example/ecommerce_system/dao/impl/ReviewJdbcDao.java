@@ -49,7 +49,7 @@ public class ReviewJdbcDao implements ReviewDao {
         return new Review(
                 rs.getObject("review_id", UUID.class),
                 null,
-                rs.getObject("customer_id", UUID.class),
+                null,
                 rs.getInt("rating"),
                 rs.getString("comment"),
                 rs.getTimestamp("created_at").toInstant()
@@ -66,7 +66,7 @@ public class ReviewJdbcDao implements ReviewDao {
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setObject(1, review.getReviewId());
             ps.setObject(2, review.getProduct().getProductId());
-            ps.setObject(3, review.getCustomerId());
+            ps.setObject(3, review.getCustomer().getCustomerId());
             ps.setInt(4, review.getRating());
             ps.setString(5, review.getComment());
             ps.setTimestamp(6, Timestamp.from(review.getCreatedAt()));
