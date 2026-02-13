@@ -1,10 +1,7 @@
 package com.example.ecommerce_system.controller.rest;
 
 import com.example.ecommerce_system.dto.*;
-import com.example.ecommerce_system.dto.category.CategoryRequestDto;
-import com.example.ecommerce_system.dto.category.CategoryResponseDto;
-import com.example.ecommerce_system.dto.category.CreateCategoryRequest;
-import com.example.ecommerce_system.dto.category.UpdateCategoryRequest;
+import com.example.ecommerce_system.dto.category.*;
 import com.example.ecommerce_system.service.CategoryService;
 import com.example.ecommerce_system.util.handler.SuccessResponseHandler;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,7 +9,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
@@ -35,9 +31,18 @@ public class CategoryController {
     @GetMapping
     public SuccessResponseDto<List<CategoryResponseDto>> getAllCategories(
             @RequestParam @Min(1) @Max(100) int limit,
-            @RequestParam @Min(0) int offset)
-    {
-        List<CategoryResponseDto> categories = categoryService.getAllCategories(limit, offset);
+            @RequestParam @Min(0) int offset,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String description
+    ) {
+        var filter = CategoryFilter.builder()
+                .name(name)
+                .description(description)
+                .build();
+
+        List<CategoryResponseDto> categories = filter.isEmpty()
+                ? categoryService.getAllCategories(limit, offset)
+                : categoryService.getCategories(filter, limit, offset);
         return SuccessResponseHandler.generateSuccessResponse(HttpStatus.OK, categories);
     }
 
@@ -49,19 +54,5 @@ public class CategoryController {
     public SuccessResponseDto<CategoryResponseDto> getCategoryById(@PathVariable UUID id) {
         CategoryResponseDto category = categoryService.getCategory(id);
         return SuccessResponseHandler.generateSuccessResponse(HttpStatus.OK, category);
-    }
-
-    @Operation(summary = "Retrieve categories with name containing query")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Find all categories with names containing the query")
-    })
-    @GetMapping("/search")
-    public SuccessResponseDto<List<CategoryResponseDto>> searchCategoriesByName(
-            @RequestParam @NotBlank String query,
-            @RequestParam @Min(1) @Max(100) int limit,
-            @RequestParam @Min(0) int offset
-    ) {
-        List<CategoryResponseDto> categories = categoryService.getCategories(query, limit, offset);
-        return SuccessResponseHandler.generateSuccessResponse(HttpStatus.OK, categories);
     }
 }

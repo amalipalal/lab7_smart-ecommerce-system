@@ -1,5 +1,6 @@
 package com.example.ecommerce_system.service;
 
+import com.example.ecommerce_system.dto.category.CategoryFilter;
 import com.example.ecommerce_system.dto.category.CategoryRequestDto;
 import com.example.ecommerce_system.dto.category.CategoryResponseDto;
 import com.example.ecommerce_system.exception.category.CategoryNotFoundException;
@@ -86,11 +87,12 @@ public class CategoryService {
     /**
      * Search for a category with name or description containing query.
      */
-    @Cacheable(value = "paginated", key = "'search_categories_' + #query + '_' + #limit + '_' + #offset")
-    public List<CategoryResponseDto> getCategories(String query, int limit, int offset) {
-        Category probe = new Category();
-        probe.setName(query);
-        probe.setDescription(query);
+    @Cacheable(value = "paginated", key = "'search_categories_' + #filter.toString() + '_' + #limit + '_' + #offset")
+    public List<CategoryResponseDto> getCategories(CategoryFilter filter, int limit, int offset) {
+        Category probe = Category.builder()
+                .name(filter.getName())
+                .description(filter.getDescription())
+                .build();
 
         ExampleMatcher matcher = ExampleMatcher.matching()
                 .withIgnoreNullValues()
