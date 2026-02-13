@@ -12,6 +12,7 @@ import com.example.ecommerce_system.exception.order.OrderDoesNotExist;
 import com.example.ecommerce_system.exception.order.OrderStatusNotFoundException;
 import com.example.ecommerce_system.exception.product.InsufficientProductStock;
 import com.example.ecommerce_system.exception.product.ProductNotFoundException;
+import com.example.ecommerce_system.exception.product.ProductOptimisticLockException;
 import com.example.ecommerce_system.model.*;
 import com.example.ecommerce_system.repository.*;
 import com.example.ecommerce_system.util.OrderSpecification;
@@ -22,8 +23,13 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.OptimisticLockException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.time.Instant;
 import java.util.List;
@@ -180,17 +186,22 @@ public class OrderService {
     }
 
     /**
-     * Updates order status to either PROCESSED or CANCELLED.
+     * Updates order status to either PROCESSED or CANCELLED with retry mechanism.
      * Processing deducts stock quantities, cancellation is only allowed for pending orders.
      */
     @CacheEvict(value = {"orders", "products", "paginated"}, allEntries = true)
     @Transactional
+    @Retryable(
+        retryFor = {OptimisticLockException.class, ObjectOptimisticLockingFailureException.class},
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 100, multiplier = 2)
+    )
     public OrderResponseDto updateOrderStatus(UUID orderId, OrderRequestDto request) {
         Orders existingOrder = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderDoesNotExist(orderId.toString()));
 
         switch (request.getStatus()) {
-            case PROCESSED -> processOrder(existingOrder);
+            case PROCESSED -> processOrderWithRetry(existingOrder);
             case CANCELLED -> cancelOrder(existingOrder);
             default -> throw new InvalidOrderStatusException("this status is not allowed");
         }
@@ -198,20 +209,73 @@ public class OrderService {
         return orderMapper.toDto(existingOrder);
     }
 
+    @Retryable(
+        retryFor = {OptimisticLockException.class, ObjectOptimisticLockingFailureException.class},
+        maxAttempts = 5,
+        backoff = @Backoff(delay = 50, multiplier = 1.5, maxDelay = 1000)
+    )
+    private void processOrderWithRetry(Orders existingOrder) {
+        var orderId = existingOrder.getOrderId();
+        try {
+            processOrder(existingOrder);
+        } catch (OptimisticLockException | ObjectOptimisticLockingFailureException e) {
+            // Refresh the order and its items from database before retry
+            existingOrder = orderRepository.findById(existingOrder.getOrderId())
+                    .orElseThrow(() -> new OrderDoesNotExist(orderId.toString()));
+            throw e;
+        }
+    }
+
     private void processOrder(Orders existingOrder) {
         if (existingOrder.getStatus().getStatusName() == PROCESSED)
             return;
 
         for (OrderItem item : existingOrder.getOrderItems()) {
-            Product product = item.getProduct();
+            // Refresh product from database to get latest version
+            var product = item.getProduct();
+
             int newStock = product.getStockQuantity() - item.getQuantity();
-            if (newStock < 0) throw new InsufficientProductStock(product.getProductId().toString());
+            if (newStock < 0)
+                throw new InsufficientProductStock(product.getProductId().toString());
 
             product.setStockQuantity(newStock);
+            product.setUpdatedAt(Instant.now());
+
+            try {
+                productRepository.save(product);
+            } catch (OptimisticLockException | ObjectOptimisticLockingFailureException e) {
+                throw new ProductOptimisticLockException(product.getProductId().toString(), e);
+            }
         }
 
         var status = retrieveOrderStatus(PROCESSED);
         existingOrder.setStatus(status);
+    }
+
+    /**
+     * Recover handlers used when optimistic lock keeps
+     * occurring and proper error needs to be thrown.
+     * Not explicitly called but referenced by retry context.
+     */
+    @Recover
+    public OrderResponseDto recoverFromOptimisticLock(
+            OptimisticLockException ex,
+            UUID orderId,
+            OrderRequestDto request) {
+        throw new ProductOptimisticLockException("Failed to process order after multiple retries: " + orderId);
+    }
+
+    /**
+     * Recover handlers used when optimistic lock keeps
+     * occurring and proper error needs to be thrown.
+     * Not explicitly called but referenced by retry context.
+     */
+    @Recover
+    public OrderResponseDto recoverFromOptimisticLock(
+            ObjectOptimisticLockingFailureException ex,
+            UUID orderId,
+            OrderRequestDto request) {
+        throw new ProductOptimisticLockException("Failed to process order after multiple retries: " + orderId);
     }
 
     private void cancelOrder(Orders existingOrder) {

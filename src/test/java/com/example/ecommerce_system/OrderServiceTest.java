@@ -600,6 +600,7 @@ class OrderServiceTest {
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(existingOrder));
         when(orderStatusRepository.findOrderStatusByStatusName(OrderStatusType.PROCESSED))
                 .thenReturn(Optional.of(processedStatus));
+        when(productRepository.save(any(Product.class))).thenReturn(product);
         when(orderMapper.toDto(any(Orders.class))).thenReturn(responseDto);
 
         OrderResponseDto response = orderService.updateOrderStatus(orderId, request);
@@ -609,6 +610,7 @@ class OrderServiceTest {
         Assertions.assertEquals(8, product.getStockQuantity());
         verify(orderRepository).findById(orderId);
         verify(orderStatusRepository).findOrderStatusByStatusName(OrderStatusType.PROCESSED);
+        verify(productRepository).save(product);
         verify(orderMapper).toDto(existingOrder);
     }
 

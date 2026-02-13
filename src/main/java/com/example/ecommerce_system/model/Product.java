@@ -32,6 +32,10 @@ public class Product {
     @Column(name = "stock_quantity")
     private int stockQuantity;
 
+    @Version
+    @Column(name = "version")
+    private Long version;
+
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Review> reviews;
 
