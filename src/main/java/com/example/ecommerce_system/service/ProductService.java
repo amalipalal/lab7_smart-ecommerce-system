@@ -13,6 +13,8 @@ import com.example.ecommerce_system.repository.ProductRepository;
 import com.example.ecommerce_system.util.ProductSpecification;
 import com.example.ecommerce_system.util.mapper.ProductMapper;
 import lombok.AllArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,7 @@ public class ProductService {
      * Create a new product.
      * Validates that the category exists before creating the product.
      */
+    @CacheEvict(value = {"products", "paginated"}, allEntries = true)
     public ProductResponseDto createProduct(ProductRequestDto request) {
         var category = getCategory(request.getCategoryId());
 
@@ -56,6 +59,7 @@ public class ProductService {
                 .orElseThrow(() -> new CategoryNotFoundException(categoryId.toString()));
     }
 
+    @Cacheable(value = "products", key = "#productId")
     public ProductResponseDto getProduct(UUID productId) {
         var product = retrieveProductFromRepository(productId);
         return productMapper.toDTO(product);
@@ -69,6 +73,7 @@ public class ProductService {
     /**
      * Retrieve all products with pagination.
      */
+    @Cacheable(value = "paginated", key = "'all_products_' + #limit + '_' + #offset")
     public List<ProductResponseDto> getAllProducts(int limit, int offset) {
         List<Product> products = productRepository.findAll(PageRequest.of(offset, limit)).getContent();
         return productMapper.toDTOList(products);
@@ -78,6 +83,7 @@ public class ProductService {
      * Delete a product by ID.
      * Validates that the product exists before deletion.
      */
+    @CacheEvict(value = {"products", "paginated"}, allEntries = true)
     public void deleteProduct(UUID productId) {
         var existing = retrieveProductFromRepository(productId);
         productRepository.deleteById(existing.getProductId());
@@ -86,6 +92,7 @@ public class ProductService {
     /**
      * Search for products using a filter with pagination.
      */
+    @Cacheable(value = "paginated", key = "'search_products_' + #filter.toString() + '_' + #limit + '_' + #offset")
     public List<ProductResponseDto> searchProducts(ProductFilter filter, int limit, int offset) {
         Specification<Product> spec = ProductSpecification.buildSpecification(filter);
         List<Product> products = productRepository.findAll(spec, PageRequest.of(offset, limit)).getContent();
@@ -96,6 +103,7 @@ public class ProductService {
      * Update an existing product.
      * Validates product existence and merges provided fields with existing values.
      */
+    @CacheEvict(value = {"products", "paginated"}, allEntries = true)
     public ProductResponseDto updateProduct(UUID productId, ProductRequestDto request) {
         var existingProduct = retrieveProductFromRepository(productId);
 
@@ -119,6 +127,7 @@ public class ProductService {
      * Get all products with their categories and reviews.
      * Each product includes a limited number of reviews based on reviewLimit parameter.
      */
+    @Cacheable(value = "paginated", key = "'products_with_reviews_' + #limit + '_' + #offset + '_' + #reviewLimit")
     public List<ProductWithReviewsDto> getAllProductsWithReviews(int limit, int offset, int reviewLimit) {
         var productsPage = productRepository.findAllWithLimitedReviews(
                 reviewLimit,

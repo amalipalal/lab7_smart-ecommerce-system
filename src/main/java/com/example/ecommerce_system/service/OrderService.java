@@ -15,6 +15,8 @@ import com.example.ecommerce_system.model.*;
 import com.example.ecommerce_system.repository.*;
 import com.example.ecommerce_system.util.mapper.OrderMapper;
 import lombok.AllArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -43,6 +45,7 @@ public class OrderService {
      * Validates order items, checks product availability and stock, calculates total amount,
      * and creates the order with PENDING status.
      */
+    @CacheEvict(value = {"orders", "paginated"}, allEntries = true)
     @Transactional
     public OrderResponseDto placeOrder(OrderRequestDto request, UUID userId) {
         var customer = checkIfCustomerExists(userId);
@@ -119,6 +122,7 @@ public class OrderService {
     /**
      * Retrieves an order and its items by order ID.
      */
+    @Cacheable(value = "orders", key = "#orderId")
     public OrderResponseDto getOrder(UUID orderId) {
         Orders order = orderRepository.findById(orderId).orElseThrow(
                 () -> new OrderDoesNotExist(orderId.toString()));
@@ -129,6 +133,7 @@ public class OrderService {
      * Retrieves all orders with pagination.
      * Each order includes its associated items.
      */
+    @Cacheable(value = "paginated", key = "'all_orders_' + #limit + '_' + #offset")
     public List<OrderResponseDto> getAllOrders(int limit, int offset) {
         PageRequest pageRequest = PageRequest.of(
                 offset,
@@ -139,6 +144,7 @@ public class OrderService {
         return orderMapper.toDtoList(orders);
     }
 
+    @Cacheable(value = "paginated", key = "'customer_orders_' + #userId + '_' + #limit + '_' + #offset")
     public List<OrderResponseDto> getCustomerOrders(UUID userId, int limit, int offset) {
         var customer = checkIfCustomerExists(userId);
 
@@ -154,6 +160,7 @@ public class OrderService {
         return orderMapper.toDtoList(orders);
     }
 
+    @CacheEvict(value = {"orders", "products", "paginated"}, allEntries = true)
     @Transactional
     public OrderResponseDto updateOrderStatus(UUID orderId, OrderRequestDto request) {
         Orders existingOrder = orderRepository.findById(orderId)

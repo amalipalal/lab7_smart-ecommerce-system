@@ -14,6 +14,8 @@ import com.example.ecommerce_system.repository.ProductRepository;
 import com.example.ecommerce_system.repository.ReviewRepository;
 import com.example.ecommerce_system.util.mapper.ReviewMapper;
 import lombok.AllArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -36,6 +38,7 @@ public class ReviewService {
      * Create a new review for a product.
      * Validates that the product exists, the customer exists, and the customer has ordered and received (PROCESSED status) the product.
      */
+    @CacheEvict(value = {"reviews", "products", "paginated"}, allEntries = true)
     public ReviewResponseDto createReview(UUID productId, UUID userId, ReviewRequestDto request) {
         var product = checkThatProductExists(productId);
         var customer = checkThatCustomerExists(userId);
@@ -80,6 +83,7 @@ public class ReviewService {
      * Retrieve paginated reviews for a specific product.
      * Validates product existence before fetching reviews. Each review includes customer details.
      */
+    @Cacheable(value = "paginated", key = "'product_reviews_' + #productId + '_' + #limit + '_' + #offset")
     public List<ReviewResponseDto> getReviewsByProduct(UUID productId, int limit, int offset) {
         checkThatProductExists(productId);
         PageRequest pageRequest = PageRequest.of(
@@ -95,6 +99,7 @@ public class ReviewService {
      * Retrieve paginated reviews made by a specific customer.
      * Validates customer existence before fetching reviews.
      */
+    @Cacheable(value = "paginated", key = "'customer_reviews_' + #customerId + '_' + #limit + '_' + #offset")
     public List<ReviewResponseDto> getReviewsByCustomer(UUID customerId, int limit, int offset) {
         var customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new CustomerNotFoundException(customerId.toString()));

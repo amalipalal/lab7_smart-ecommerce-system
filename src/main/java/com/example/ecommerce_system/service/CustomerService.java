@@ -7,6 +7,8 @@ import com.example.ecommerce_system.model.Customer;
 import com.example.ecommerce_system.repository.CustomerRepository;
 import com.example.ecommerce_system.util.mapper.CustomerMapper;
 import lombok.AllArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +30,7 @@ public class CustomerService {
      * throws {@link com.example.ecommerce_system.exception.customer.CustomerNotFoundException}
      * when no customer is found.
      */
+    @Cacheable(value = "customers", key = "#customerId")
     public CustomerResponseDto getCustomer(UUID customerId) {
         Customer customer = customerRepository.findById(customerId)
                 .orElseThrow(() -> new CustomerNotFoundException(customerId.toString()));
@@ -39,6 +42,7 @@ public class CustomerService {
      * <p>
      * Delegates to {@link com.example.ecommerce_system.store.CustomerStore#getAllCustomers(int, int)}.
      */
+    @Cacheable(value = "paginated", key = "'all_customers_' + #limit + '_' + #offset")
     public List<CustomerResponseDto> getAllCustomers(int limit, int offset) {
         List<Customer> customers = customerRepository
                 .findAll(PageRequest.of(offset, limit))
@@ -51,6 +55,7 @@ public class CustomerService {
      * <p>
      * Delegates to {@link com.example.ecommerce_system.store.CustomerStore#searchCustomers(String, int, int)}.
      */
+    @Cacheable(value = "paginated", key = "'search_customers_' + #query + '_' + #limit + '_' + #offset")
     public List<CustomerResponseDto> searchCustomers(String query, int limit, int offset) {
         List<Customer> customers = customerRepository
                 .searchCustomersByName(query, PageRequest.of(offset, limit))
@@ -64,6 +69,7 @@ public class CustomerService {
      * Validates presence of the customer via {@link com.example.ecommerce_system.store.CustomerStore#getCustomer(java.util.UUID)} and
      * delegates persistence to {@link com.example.ecommerce_system.store.CustomerStore#updateCustomer(com.example.ecommerce_system.model.Customer)}.
      */
+    @CacheEvict(value = {"customers", "paginated"}, allEntries = true)
     @Transactional
     public CustomerResponseDto updateCustomer(UUID customerId, CustomerRequestDto request) {
         Customer existing = customerRepository.findById(customerId)
