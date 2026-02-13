@@ -1,5 +1,6 @@
 package com.example.ecommerce_system;
 
+import com.example.ecommerce_system.dto.orders.OrderFilter;
 import com.example.ecommerce_system.dto.orders.OrderItemDto;
 import com.example.ecommerce_system.dto.orders.OrderRequestDto;
 import com.example.ecommerce_system.dto.orders.OrderResponseDto;
@@ -25,6 +26,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -514,6 +516,45 @@ class OrderServiceTest {
     }
 
     @Test
+    @DisplayName("Should update order status to CANCELLED successfully")
+    void shouldUpdateOrderStatusToCancelled() {
+        UUID orderId = UUID.randomUUID();
+
+        Orders existingOrder = Orders.builder()
+                .orderId(orderId)
+                .customer(Customer.builder().customerId(UUID.randomUUID()).build())
+                .totalAmount(1200.0)
+                .status(pendingStatus)
+                .orderDate(Instant.now())
+                .orderItems(new ArrayList<>())
+                .build();
+
+        OrderResponseDto responseDto = OrderResponseDto.builder()
+                .orderId(orderId)
+                .status(OrderStatusType.CANCELLED.name())
+                .totalAmount(1200.0)
+                .items(null)
+                .build();
+
+        OrderRequestDto request = OrderRequestDto.builder()
+                .status(OrderStatusType.CANCELLED)
+                .build();
+
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(existingOrder));
+        when(orderStatusRepository.findOrderStatusByStatusName(OrderStatusType.CANCELLED))
+                .thenReturn(Optional.of(cancelledStatus));
+        when(orderMapper.toDto(any(Orders.class))).thenReturn(responseDto);
+
+        OrderResponseDto response = orderService.updateOrderStatus(orderId, request);
+
+        Assertions.assertEquals(OrderStatusType.CANCELLED.name(), response.getStatus());
+        Assertions.assertEquals(cancelledStatus, existingOrder.getStatus());
+        verify(orderRepository).findById(orderId);
+        verify(orderStatusRepository).findOrderStatusByStatusName(OrderStatusType.CANCELLED);
+        verify(orderMapper).toDto(existingOrder);
+    }
+
+    @Test
     @DisplayName("Should update order status to PROCESSED successfully")
     void shouldUpdateOrderStatusToProcessed() {
         UUID orderId = UUID.randomUUID();
@@ -540,15 +581,6 @@ class OrderServiceTest {
                 .orderItems(List.of(item))
                 .build();
 
-        Orders processedOrder = Orders.builder()
-                .orderId(orderId)
-                .customer(existingOrder.getCustomer())
-                .totalAmount(1200.0)
-                .status(processedStatus)
-                .orderDate(existingOrder.getOrderDate())
-                .orderItems(existingOrder.getOrderItems())
-                .build();
-
         OrderResponseDto responseDto = OrderResponseDto.builder()
                 .orderId(orderId)
                 .status(OrderStatusType.PROCESSED.name())
@@ -562,61 +594,16 @@ class OrderServiceTest {
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(existingOrder));
         when(orderStatusRepository.findOrderStatusByStatusName(OrderStatusType.PROCESSED))
                 .thenReturn(Optional.of(processedStatus));
-        when(productRepository.save(any(Product.class))).thenReturn(product);
-        when(orderRepository.save(any(Orders.class))).thenReturn(processedOrder);
         when(orderMapper.toDto(any(Orders.class))).thenReturn(responseDto);
 
         OrderResponseDto response = orderService.updateOrderStatus(orderId, request);
 
         Assertions.assertEquals(OrderStatusType.PROCESSED.name(), response.getStatus());
-        verify(productRepository).save(any(Product.class));
-        verify(orderRepository).save(any(Orders.class));
-    }
-
-    @Test
-    @DisplayName("Should update order status to CANCELLED successfully")
-    void shouldUpdateOrderStatusToCancelled() {
-        UUID orderId = UUID.randomUUID();
-
-        Orders existingOrder = Orders.builder()
-                .orderId(orderId)
-                .customer(Customer.builder().customerId(UUID.randomUUID()).build())
-                .totalAmount(1200.0)
-                .status(pendingStatus)
-                .orderDate(Instant.now())
-                .orderItems(new ArrayList<>())
-                .build();
-
-        Orders cancelledOrder = Orders.builder()
-                .orderId(orderId)
-                .customer(existingOrder.getCustomer())
-                .totalAmount(1200.0)
-                .status(cancelledStatus)
-                .orderDate(existingOrder.getOrderDate())
-                .orderItems(existingOrder.getOrderItems())
-                .build();
-
-        OrderResponseDto responseDto = OrderResponseDto.builder()
-                .orderId(orderId)
-                .status(OrderStatusType.CANCELLED.name())
-                .totalAmount(1200.0)
-                .items(null)
-                .build();
-
-        OrderRequestDto request = OrderRequestDto.builder()
-                .status(OrderStatusType.CANCELLED)
-                .build();
-
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(existingOrder));
-        when(orderStatusRepository.findOrderStatusByStatusName(OrderStatusType.CANCELLED))
-                .thenReturn(Optional.of(cancelledStatus));
-        when(orderRepository.save(any(Orders.class))).thenReturn(cancelledOrder);
-        when(orderMapper.toDto(any(Orders.class))).thenReturn(responseDto);
-
-        OrderResponseDto response = orderService.updateOrderStatus(orderId, request);
-
-        Assertions.assertEquals(OrderStatusType.CANCELLED.name(), response.getStatus());
-        verify(orderRepository).save(any(Orders.class));
+        Assertions.assertEquals(processedStatus, existingOrder.getStatus());
+        Assertions.assertEquals(8, product.getStockQuantity());
+        verify(orderRepository).findById(orderId);
+        verify(orderStatusRepository).findOrderStatusByStatusName(OrderStatusType.PROCESSED);
+        verify(orderMapper).toDto(existingOrder);
     }
 
     @Test
@@ -641,7 +628,8 @@ class OrderServiceTest {
                 () -> orderService.updateOrderStatus(orderId, request)
         );
 
-        verify(orderRepository, never()).save(any());
+        verify(orderRepository).findById(orderId);
+        verify(orderStatusRepository, never()).findOrderStatusByStatusName(any());
     }
 
     @Test
@@ -666,7 +654,8 @@ class OrderServiceTest {
                 () -> orderService.updateOrderStatus(orderId, request)
         );
 
-        verify(orderRepository, never()).save(any());
+        verify(orderRepository).findById(orderId);
+        verify(orderStatusRepository, never()).findOrderStatusByStatusName(any());
     }
 
     @Test
@@ -702,7 +691,104 @@ class OrderServiceTest {
                 () -> orderService.updateOrderStatus(orderId, request)
         );
 
-        verify(productRepository, never()).save(any());
-        verify(orderRepository, never()).save(any());
+        verify(orderRepository).findById(orderId);
+    }
+
+    @Test
+    @DisplayName("Should search orders with filter successfully")
+    @SuppressWarnings("unchecked")
+    void shouldSearchOrdersWithFilterSuccessfully() {
+        UUID customerId = UUID.randomUUID();
+        OrderFilter filter = OrderFilter.builder()
+                .customerId(customerId)
+                .status(OrderStatusType.PENDING)
+                .build();
+
+        Customer customer = Customer.builder()
+                .customerId(customerId)
+                .firstName("John")
+                .lastName("Doe")
+                .build();
+
+        Orders order = Orders.builder()
+                .orderId(UUID.randomUUID())
+                .customer(customer)
+                .totalAmount(1200.0)
+                .status(pendingStatus)
+                .orderDate(Instant.now())
+                .orderItems(new ArrayList<>())
+                .build();
+
+        Page<Orders> ordersPage = new PageImpl<>(List.of(order), PageRequest.of(0, 10), 1);
+        List<OrderResponseDto> responseDtos = List.of(
+                OrderResponseDto.builder()
+                        .orderId(order.getOrderId())
+                        .status(OrderStatusType.PENDING.name())
+                        .totalAmount(1200.0)
+                        .build()
+        );
+
+        when(orderRepository.findAll(any(Specification.class), any(PageRequest.class))).thenReturn(ordersPage);
+        when(orderMapper.toDtoList(anyList())).thenReturn(responseDtos);
+
+        List<OrderResponseDto> response = orderService.searchOrders(filter, 10, 0);
+
+        Assertions.assertEquals(1, response.size());
+        Assertions.assertEquals(OrderStatusType.PENDING.name(), response.get(0).getStatus());
+        verify(orderRepository).findAll(any(Specification.class), any(PageRequest.class));
+        verify(orderMapper).toDtoList(anyList());
+    }
+
+    @Test
+    @DisplayName("Should return empty list when no orders match filter")
+    @SuppressWarnings("unchecked")
+    void shouldReturnEmptyListWhenNoOrdersMatchFilter() {
+        OrderFilter filter = OrderFilter.builder()
+                .status(OrderStatusType.CANCELLED)
+                .build();
+
+        Page<Orders> emptyPage = new PageImpl<>(List.of(), PageRequest.of(0, 10), 0);
+
+        when(orderRepository.findAll(any(Specification.class), any(PageRequest.class))).thenReturn(emptyPage);
+        when(orderMapper.toDtoList(anyList())).thenReturn(List.of());
+
+        List<OrderResponseDto> response = orderService.searchOrders(filter, 10, 0);
+
+        Assertions.assertEquals(0, response.size());
+        verify(orderRepository).findAll(any(Specification.class), any(PageRequest.class));
+    }
+
+    @Test
+    @DisplayName("Should handle pagination correctly in search")
+    @SuppressWarnings("unchecked")
+    void shouldHandlePaginationInSearch() {
+        OrderFilter filter = OrderFilter.builder()
+                .status(OrderStatusType.PROCESSED)
+                .build();
+
+        Orders order = Orders.builder()
+                .orderId(UUID.randomUUID())
+                .customer(Customer.builder().customerId(UUID.randomUUID()).build())
+                .totalAmount(800.0)
+                .status(processedStatus)
+                .orderDate(Instant.now())
+                .orderItems(new ArrayList<>())
+                .build();
+
+        Page<Orders> ordersPage = new PageImpl<>(List.of(order), PageRequest.of(5, 5), 1);
+        List<OrderResponseDto> responseDtos = List.of(
+                OrderResponseDto.builder()
+                        .orderId(order.getOrderId())
+                        .status(OrderStatusType.PROCESSED.name())
+                        .build()
+        );
+
+        when(orderRepository.findAll(any(Specification.class), any(PageRequest.class))).thenReturn(ordersPage);
+        when(orderMapper.toDtoList(anyList())).thenReturn(responseDtos);
+
+        List<OrderResponseDto> response = orderService.searchOrders(filter, 5, 5);
+
+        Assertions.assertEquals(1, response.size());
+        verify(orderRepository).findAll(any(Specification.class), eq(PageRequest.of(5, 5, org.springframework.data.domain.Sort.by("orderDate").descending())));
     }
 }
