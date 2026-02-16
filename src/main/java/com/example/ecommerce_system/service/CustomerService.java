@@ -24,11 +24,8 @@ public class CustomerService {
     private final CustomerRepository customerRepository;
 
     /**
-     * Retrieve a customer by id.
-     * <p>
-     * Uses {@link com.example.ecommerce_system.store.CustomerStore#getCustomer(java.util.UUID)} and
-     * throws {@link com.example.ecommerce_system.exception.customer.CustomerNotFoundException}
-     * when no customer is found.
+     * Retrieves a customer by their unique identifier.
+     * The result is cached to improve performance for subsequent requests.
      */
     @Cacheable(value = "customers", key = "#customerId")
     public CustomerResponseDto getCustomer(UUID customerId) {
@@ -38,9 +35,9 @@ public class CustomerService {
     }
 
     /**
-     * Retrieve all customers with pagination.
-     * <p>
-     * Delegates to {@link com.example.ecommerce_system.store.CustomerStore#getAllCustomers(int, int)}.
+     * Retrieves all customers with pagination.
+     * Results are cached based on limit and offset parameters.
+     * Uses zero-based page indexing where offset represents the page number.
      */
     @Cacheable(value = "paginated", key = "'all_customers_' + #limit + '_' + #offset")
     public List<CustomerResponseDto> getAllCustomers(int limit, int offset) {
@@ -51,9 +48,9 @@ public class CustomerService {
     }
 
     /**
-     * Search for customers by query string matching first name, last name, or email.
-     * <p>
-     * Delegates to {@link com.example.ecommerce_system.store.CustomerStore#searchCustomers(String, int, int)}.
+     * Searches for customers by query string matching first name, last name, or email.
+     * Results are cached based on the search query and pagination parameters.
+     * The search is case-insensitive and supports partial matching.
      */
     @Cacheable(value = "paginated", key = "'search_customers_' + #query + '_' + #limit + '_' + #offset")
     public List<CustomerResponseDto> searchCustomers(String query, int limit, int offset) {
@@ -64,10 +61,10 @@ public class CustomerService {
     }
 
     /**
-     * Update customer's details.
-     * <p>
-     * Validates presence of the customer via {@link com.example.ecommerce_system.store.CustomerStore#getCustomer(java.util.UUID)} and
-     * delegates persistence to {@link com.example.ecommerce_system.store.CustomerStore#updateCustomer(com.example.ecommerce_system.model.Customer)}.
+     * Updates a customer's phone number and active status.
+     * Only updates fields that are provided in the request (non-null values).
+     * This operation evicts all customer-related caches to maintain data consistency.
+     * Changes are persisted automatically due to the transactional context.
      */
     @CacheEvict(value = {"customers", "paginated"}, allEntries = true)
     @Transactional
