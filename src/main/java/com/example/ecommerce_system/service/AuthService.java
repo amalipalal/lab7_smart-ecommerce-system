@@ -1,7 +1,5 @@
 package com.example.ecommerce_system.service;
 
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.algorithms.Algorithm;
 import com.example.ecommerce_system.dto.auth.AuthResponseDto;
 import com.example.ecommerce_system.dto.auth.LoginRequestDto;
 import com.example.ecommerce_system.dto.auth.SignupRequestDto;
@@ -18,16 +16,19 @@ import com.example.ecommerce_system.repository.RoleRepository;
 import com.example.ecommerce_system.repository.UserRepository;
 import com.example.ecommerce_system.util.mapper.AuthMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.Date;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class AuthService {
@@ -92,11 +93,17 @@ public class AuthService {
      * Verifies credentials and returns user details if valid.
      */
     public AuthResponseDto login(LoginRequestDto request) {
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            );
+        } catch (AuthenticationException e) {
+            log.debug("Auth Error message is: {}", e.getMessage());
+            throw new InvalidCredentialsException();
+        }
+
         User user = userRepository.findUserByEmail(request.getEmail())
                 .orElseThrow(() -> new UserNotFoundException(request.getEmail()));
-
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash()))
-            throw new InvalidCredentialsException();
 
         String token = generateJwtToken(user);
         return authMapper.toDTO(user, token);
