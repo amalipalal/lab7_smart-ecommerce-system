@@ -35,26 +35,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
         try {
-            String authHeader = request.getHeader("Authorization");
+            String token = extractToken(request);
 
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                String token = authHeader.substring(7);
+            if (token != null) {
                 DecodedJWT decodedJWT = jwtTokenService.validateToken(token);
-
-                String userId = jwtTokenService.extractUserId(decodedJWT);
-                String email = jwtTokenService.extractEmail(decodedJWT);
-                String roleWithPrefix = jwtTokenService.extractRoleWithPrefix(decodedJWT);
-
-                CustomUserDetails userDetails = CustomUserDetails.builder()
-                        .userId(UUID.fromString(userId))
-                        .email(email)
-                        .authorities(Collections.singleton(new SimpleGrantedAuthority(roleWithPrefix)))
-                        .build();
-
-                UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                setAuthentication(decodedJWT);
             }
         } catch (JWTVerificationException e) {
             SecurityContextHolder.clearContext();
@@ -64,5 +49,33 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private String extractToken(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+        return null;
+    }
+
+    private void setAuthentication(DecodedJWT decodedJWT) {
+        String userId = jwtTokenService.extractUserId(decodedJWT);
+        String email = jwtTokenService.extractEmail(decodedJWT);
+        String roleWithPrefix = jwtTokenService.extractRoleWithPrefix(decodedJWT);
+
+        CustomUserDetails userDetails = buildUserDetails(userId, email, roleWithPrefix);
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+    }
+
+    private CustomUserDetails buildUserDetails(String userId, String email, String roleWithPrefix) {
+        return CustomUserDetails.builder()
+                .userId(UUID.fromString(userId))
+                .email(email)
+                .authorities(Collections.singleton(new SimpleGrantedAuthority(roleWithPrefix)))
+                .build();
     }
 }
