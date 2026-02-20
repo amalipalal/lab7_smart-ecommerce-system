@@ -1,7 +1,5 @@
 package com.example.ecommerce_system.service;
 
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.algorithms.Algorithm;
 import com.example.ecommerce_system.dto.auth.AuthResponseDto;
 import com.example.ecommerce_system.dto.auth.LoginRequestDto;
 import com.example.ecommerce_system.dto.auth.SignupRequestDto;
@@ -18,16 +16,19 @@ import com.example.ecommerce_system.repository.RoleRepository;
 import com.example.ecommerce_system.repository.UserRepository;
 import com.example.ecommerce_system.util.mapper.AuthMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.Date;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class AuthService {
@@ -38,9 +39,8 @@ public class AuthService {
 
     private final BCryptPasswordEncoder passwordEncoder;
     private final AuthMapper authMapper;
-
-   @Value("${jwt.token.secret-key}")
-    private String secretKey;
+    private final JwtTokenService jwtTokenService;
+    private final AuthenticationManager authenticationManager;
 
     /**
      * Register a new user with the provided credentials.
@@ -93,24 +93,24 @@ public class AuthService {
      * Verifies credentials and returns user details if valid.
      */
     public AuthResponseDto login(LoginRequestDto request) {
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            );
+        } catch (AuthenticationException e) {
+            log.debug("Auth Error message is: {}", e.getMessage());
+            throw new InvalidCredentialsException();
+        }
+
         User user = userRepository.findUserByEmail(request.getEmail())
                 .orElseThrow(() -> new UserNotFoundException(request.getEmail()));
-
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash()))
-            throw new InvalidCredentialsException();
 
         String token = generateJwtToken(user);
         return authMapper.toDTO(user, token);
     }
 
     private String generateJwtToken(User user) {
-        Algorithm algorithm = Algorithm.HMAC256(secretKey);
-        return JWT.create()
-                .withSubject(user.getUserId().toString())
-                .withClaim("role", user.getRole().getRoleName().name())
-                .withIssuedAt(new Date())
-                .withExpiresAt(new Date(System.currentTimeMillis() + 86400000))
-                .sign(algorithm);
+        return jwtTokenService.generateToken(user);
     }
 
     private void validatePassword(String password) {

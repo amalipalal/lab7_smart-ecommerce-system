@@ -1,6 +1,5 @@
 package com.example.ecommerce_system.controller.rest;
 
-import com.example.ecommerce_system.config.RequireAdmin;
 import com.example.ecommerce_system.dto.SuccessResponseDto;
 import com.example.ecommerce_system.dto.orders.OrderFilter;
 import com.example.ecommerce_system.dto.orders.OrderRequestDto;
@@ -17,6 +16,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 import lombok.AllArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,7 +28,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @Validated
 @RequestMapping("/admin/orders")
-@RequireAdmin
+@PreAuthorize("hasRole('ADMIN')")
 public class OrderAdminController {
     private final OrderService orderService;
 

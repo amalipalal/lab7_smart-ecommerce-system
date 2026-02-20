@@ -1,6 +1,5 @@
 package com.example.ecommerce_system.controller.rest;
 
-import com.example.ecommerce_system.config.RequireAdmin;
 import com.example.ecommerce_system.dto.product.ProductFilter;
 import com.example.ecommerce_system.dto.SuccessResponseDto;
 import com.example.ecommerce_system.dto.product.CreateProductRequest;
@@ -18,6 +17,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.PositiveOrZero;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,7 +28,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @Validated
 @RequestMapping("/admin/products")
-@RequireAdmin
+@PreAuthorize("hasRole('ADMIN')")
 public class ProductAdminController {
     private final ProductService productService;
     private final ReviewService reviewService;
