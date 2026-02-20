@@ -4,7 +4,7 @@ import com.example.ecommerce_system.dto.orders.CreateOrderRequest;
 import com.example.ecommerce_system.dto.orders.OrderRequestDto;
 import com.example.ecommerce_system.dto.orders.OrderResponseDto;
 import com.example.ecommerce_system.service.OrderService;
-import com.example.ecommerce_system.util.RequestContextUtil;
+import com.example.ecommerce_system.util.SecurityContextHelper;
 import lombok.AllArgsConstructor;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
@@ -25,17 +25,17 @@ public class OrderGraphQLController {
             @Argument(name = "limit") Integer limit,
             @Argument(name = "offset") Integer offset) {
 
-        UUID userUuid = UUID.fromString(RequestContextUtil.getUserId());
+        UUID userId = SecurityContextHelper.getCurrentUserId();
         int limitValue = limit != null ? limit : 10;
         int offsetValue = offset != null ? offset : 0;
 
-        return orderService.getCustomerOrders(userUuid, limitValue, offsetValue);
+        return orderService.getCustomerOrders(userId, limitValue, offsetValue);
     }
 
     @MutationMapping
     public OrderResponseDto placeOrder(
             @Argument @Validated(CreateOrderRequest.class) OrderRequestDto input) {
-        UUID userUuid = UUID.fromString(RequestContextUtil.getUserId());
-        return orderService.placeOrder(input, userUuid);
+        UUID userId = SecurityContextHelper.getCurrentUserId();
+        return orderService.placeOrder(input, userId);
     }
 }

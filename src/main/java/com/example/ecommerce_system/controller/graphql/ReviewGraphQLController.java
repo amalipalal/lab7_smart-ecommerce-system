@@ -3,7 +3,7 @@ package com.example.ecommerce_system.controller.graphql;
 import com.example.ecommerce_system.dto.review.ReviewRequestDto;
 import com.example.ecommerce_system.dto.review.ReviewResponseDto;
 import com.example.ecommerce_system.service.ReviewService;
-import com.example.ecommerce_system.util.RequestContextUtil;
+import com.example.ecommerce_system.util.SecurityContextHelper;
 import lombok.AllArgsConstructor;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
@@ -42,8 +42,8 @@ public class ReviewGraphQLController {
             @Argument String productId,
             @Argument ReviewRequestDto request) {
         UUID productUuid = UUID.fromString(productId);
-        UUID userUuid = UUID.fromString(RequestContextUtil.getUserId());
+        UUID userId = SecurityContextHelper.getCurrentUserId();
 
-        return reviewService.createReview(productUuid, userUuid, request);
+        return reviewService.createReview(productUuid, userId, request);
     }
 }
