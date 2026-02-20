@@ -38,9 +38,8 @@ public class AuthService {
 
     private final BCryptPasswordEncoder passwordEncoder;
     private final AuthMapper authMapper;
-
-   @Value("${jwt.token.secret-key}")
-    private String secretKey;
+    private final JwtTokenService jwtTokenService;
+    private final AuthenticationManager authenticationManager;
 
     /**
      * Register a new user with the provided credentials.
@@ -104,13 +103,7 @@ public class AuthService {
     }
 
     private String generateJwtToken(User user) {
-        Algorithm algorithm = Algorithm.HMAC256(secretKey);
-        return JWT.create()
-                .withSubject(user.getUserId().toString())
-                .withClaim("role", user.getRole().getRoleName().name())
-                .withIssuedAt(new Date())
-                .withExpiresAt(new Date(System.currentTimeMillis() + 86400000))
-                .sign(algorithm);
+        return jwtTokenService.generateToken(user);
     }
 
     private void validatePassword(String password) {
