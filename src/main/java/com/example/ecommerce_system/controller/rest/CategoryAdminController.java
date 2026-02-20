@@ -1,6 +1,5 @@
 package com.example.ecommerce_system.controller.rest;
 
-import com.example.ecommerce_system.config.RequireAdmin;
 import com.example.ecommerce_system.dto.SuccessResponseDto;
 import com.example.ecommerce_system.dto.category.CategoryRequestDto;
 import com.example.ecommerce_system.dto.category.CategoryResponseDto;
@@ -13,6 +12,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,7 +21,7 @@ import java.util.UUID;
 @RestController
 @Validated
 @AllArgsConstructor
-@RequireAdmin
+@PreAuthorize("hasRole('ADMIN')")
 @RequestMapping("/admin/categories")
 public class CategoryAdminController {
     private final CategoryService categoryService;

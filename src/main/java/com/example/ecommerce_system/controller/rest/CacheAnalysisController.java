@@ -1,6 +1,5 @@
 package com.example.ecommerce_system.controller.rest;
 
-import com.example.ecommerce_system.config.RequireAdmin;
 import com.example.ecommerce_system.dto.cache.CacheComparison;
 import com.example.ecommerce_system.dto.cache.CacheSnapshot;
 import com.example.ecommerce_system.dto.cache.PerformanceReport;
@@ -11,13 +10,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/admin/cache-analysis")
-@RequireAdmin
+@PreAuthorize("hasRole('ADMIN')")
 @AllArgsConstructor
 @Tag(name = "Cache Analysis", description = "Endpoints for analyzing cache performance and statistics")
 public class CacheAnalysisController {
