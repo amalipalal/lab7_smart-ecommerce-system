@@ -5,7 +5,6 @@ import com.example.ecommerce_system.dto.auth.LoginRequestDto;
 import com.example.ecommerce_system.dto.auth.SignupRequestDto;
 import com.example.ecommerce_system.exception.auth.DuplicateEmailException;
 import com.example.ecommerce_system.exception.auth.InvalidCredentialsException;
-import com.example.ecommerce_system.exception.auth.UserNotFoundException;
 import com.example.ecommerce_system.exception.auth.WeakPasswordException;
 import com.example.ecommerce_system.model.Customer;
 import com.example.ecommerce_system.model.Role;
@@ -15,17 +14,18 @@ import com.example.ecommerce_system.repository.CustomerRepository;
 import com.example.ecommerce_system.repository.RoleRepository;
 import com.example.ecommerce_system.repository.UserRepository;
 import com.example.ecommerce_system.service.AuthService;
+import com.example.ecommerce_system.service.JwtTokenService;
 import com.example.ecommerce_system.util.mapper.AuthMapper;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -51,13 +51,14 @@ class AuthServiceTest {
     @Mock
     private AuthMapper authMapper;
 
+    @Mock
+    private JwtTokenService jwtTokenService;
+
+    @Mock
+    private AuthenticationManager authenticationManager;
+
     @InjectMocks
     private AuthService authService;
-
-    @BeforeEach
-    void setUp() {
-        ReflectionTestUtils.setField(authService, "secretKey", "test-secret-key-for-jwt-token-generation");
-    }
 
     @Test
     @DisplayName("Should signup user successfully")
@@ -293,17 +294,20 @@ class AuthServiceTest {
                 .createdAt(user.getCreatedAt())
                 .build();
 
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(null);
         when(userRepository.findUserByEmail("user@example.com")).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("Password123!", "hashedPassword")).thenReturn(true);
+        when(jwtTokenService.generateToken(user)).thenReturn("jwt-token-string");
         when(authMapper.toDTO(eq(user), anyString())).thenReturn(authResponse);
 
         AuthResponseDto response = authService.login(request);
 
         Assertions.assertEquals("user@example.com", response.getEmail());
         Assertions.assertEquals(RoleType.CUSTOMER, response.getRoleName());
+        verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
         verify(userRepository).findUserByEmail("user@example.com");
-        verify(passwordEncoder).matches("Password123!", "hashedPassword");
-        verify(authMapper).toDTO(eq(user), anyString());
+        verify(jwtTokenService).generateToken(user);
+        verify(authMapper).toDTO(eq(user), eq("jwt-token-string"));
     }
 
     @Test
@@ -314,15 +318,16 @@ class AuthServiceTest {
                 "Password123!"
         );
 
-        when(userRepository.findUserByEmail("nonexisting@example.com")).thenReturn(Optional.empty());
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenThrow(new org.springframework.security.core.AuthenticationException("Invalid credentials") {});
 
         Assertions.assertThrows(
-                UserNotFoundException.class,
+                InvalidCredentialsException.class,
                 () -> authService.login(request)
         );
 
-        verify(userRepository).findUserByEmail("nonexisting@example.com");
-        verify(passwordEncoder, never()).matches(any(), any());
+        verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
+        verify(userRepository, never()).findUserByEmail(any());
     }
 
     @Test
@@ -333,24 +338,16 @@ class AuthServiceTest {
                 "WrongPassword123!"
         );
 
-        User user = User.builder()
-                .userId(UUID.randomUUID())
-                .email("user@example.com")
-                .passwordHash("hashedPassword")
-                .role(Role.builder().roleName(RoleType.CUSTOMER).build())
-                .createdAt(Instant.now())
-                .build();
-
-        when(userRepository.findUserByEmail("user@example.com")).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("WrongPassword123!", "hashedPassword")).thenReturn(false);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenThrow(new org.springframework.security.core.AuthenticationException("Invalid credentials") {});
 
         Assertions.assertThrows(
                 InvalidCredentialsException.class,
                 () -> authService.login(request)
         );
 
-        verify(userRepository).findUserByEmail("user@example.com");
-        verify(passwordEncoder).matches("WrongPassword123!", "hashedPassword");
+        verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
+        verify(userRepository, never()).findUserByEmail(any());
     }
 
     @Test
@@ -490,8 +487,10 @@ class AuthServiceTest {
                 .createdAt(createdAt)
                 .build();
 
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(null);
         when(userRepository.findUserByEmail("user@example.com")).thenReturn(Optional.of(user));
-        when(passwordEncoder.matches("Password123!", "hashedPassword")).thenReturn(true);
+        when(jwtTokenService.generateToken(user)).thenReturn("jwt-token-string");
         when(authMapper.toDTO(eq(user), anyString())).thenReturn(authResponse);
 
         AuthResponseDto response = authService.login(request);
@@ -500,6 +499,7 @@ class AuthServiceTest {
         Assertions.assertEquals("user@example.com", response.getEmail());
         Assertions.assertEquals(RoleType.CUSTOMER, response.getRoleName());
         Assertions.assertEquals(createdAt, response.getCreatedAt());
+        verify(jwtTokenService).generateToken(user);
     }
 
     @Test
