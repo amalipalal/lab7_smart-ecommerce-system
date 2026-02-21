@@ -30,13 +30,9 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
                                         Authentication authentication) throws IOException, ServletException {
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
 
-        log.debug("AUTH HAS BEEN SUCCESSFULL");
 
         if (oAuth2User instanceof OAuth2UserWithUserObject userWithObject) {
             String token = jwtTokenService.generateToken(userWithObject.getUser());
-
-            log.debug("USER TOKEN IS {}", token);
-            log.info("USER TOKEN IS {}", token);
 
             Cookie cookie = new Cookie("jwtToken", token);
             cookie.setHttpOnly(true);
