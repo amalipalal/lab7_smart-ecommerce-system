@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
     private final AuthService authService;
 
-    @Operation(summary = "Register a new user")
+    @Operation(summary = "Register a new user", security = {})
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "User registered successfully"),
             @ApiResponse(responseCode = "400", description = "Bad request - Invalid input or weak password"),
@@ -35,7 +35,7 @@ public class AuthController {
         return SuccessResponseHandler.generateSuccessResponse(HttpStatus.CREATED, response);
     }
 
-    @Operation(summary = "Authenticate a user")
+    @Operation(summary = "Authenticate a user", security = {})
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Login successful"),
             @ApiResponse(responseCode = "400", description = "Bad request - Invalid input"),
