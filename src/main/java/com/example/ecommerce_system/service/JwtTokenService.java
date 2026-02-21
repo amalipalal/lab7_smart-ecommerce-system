@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.util.UUID;
 
 @RequiredArgsConstructor
 @Service
@@ -27,6 +28,7 @@ public class JwtTokenService {
                 .withSubject(user.getUserId().toString())
                 .withClaim("email", user.getEmail())
                 .withClaim("role", user.getRole().getRoleName().name())
+                .withJWTId(UUID.randomUUID().toString())
                 .withIssuedAt(new Date())
                 .withExpiresAt(new Date(System.currentTimeMillis() + expirationMs))
                 .sign(algorithm);
@@ -51,5 +53,9 @@ public class JwtTokenService {
 
     public String extractRoleWithPrefix(DecodedJWT decodedJWT) {
         return "ROLE_" + extractRole(decodedJWT);
+    }
+
+    public String extractJti(DecodedJWT decodedJWT) {
+        return decodedJWT.getId();
     }
 }

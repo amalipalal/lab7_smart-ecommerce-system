@@ -1,6 +1,7 @@
 package com.example.ecommerce_system.config;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.caffeine.CaffeineCache;
@@ -15,6 +16,9 @@ import java.util.Arrays;
 @Configuration
 @EnableCaching
 public class CacheConfig {
+
+    @Value("${jwt.token.expiration-ms:86400000}")
+    private long tokenExpirationMs;
 
     @Bean
     @Profile("dev")
@@ -36,6 +40,7 @@ public class CacheConfig {
 
     private CacheManager createCacheManager(Duration baseTtl, int baseSize) {
         SimpleCacheManager cacheManager = new SimpleCacheManager();
+        Duration tokenBlacklistTtl = Duration.ofMillis(tokenExpirationMs);
 
         cacheManager.setCaches(Arrays.asList(
             buildCache("categories", baseTtl, 2, baseSize, 2),
@@ -46,7 +51,8 @@ public class CacheConfig {
             buildCache("order_items", baseTtl, 2, baseSize, 10),
             buildCache("carts", baseTtl, 1, baseSize, 2),
             buildCache("reviews", baseTtl, 2, baseSize, 6),
-            buildCache("paginated", baseTtl.dividedBy(2), baseSize, 3)
+            buildCache("paginated", baseTtl.dividedBy(2), baseSize, 3),
+            buildCache("tokenBlacklist", tokenBlacklistTtl, baseSize, 1)
         ));
 
         return cacheManager;

@@ -9,6 +9,7 @@ import com.example.ecommerce_system.util.handler.SuccessResponseHandler;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -45,5 +46,20 @@ public class AuthController {
     public SuccessResponseDto<AuthResponseDto> login(@RequestBody @Valid LoginRequestDto request) {
         AuthResponseDto response = authService.login(request);
         return SuccessResponseHandler.generateSuccessResponse(HttpStatus.OK, response);
+    }
+
+    @Operation(summary = "Logout a user")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Logout successful"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid token")
+    })
+    @PostMapping("/logout")
+    public SuccessResponseDto<Void> logout(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            authService.logout(token);
+        }
+        return SuccessResponseHandler.generateSuccessResponse(HttpStatus.OK, null);
     }
 }

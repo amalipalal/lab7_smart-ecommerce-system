@@ -41,6 +41,7 @@ public class AuthService {
     private final AuthMapper authMapper;
     private final JwtTokenService jwtTokenService;
     private final AuthenticationManager authenticationManager;
+    private final TokenBlacklistService tokenBlacklistService;
 
     /**
      * Register a new user with the provided credentials.
@@ -111,6 +112,20 @@ public class AuthService {
 
     private String generateJwtToken(User user) {
         return jwtTokenService.generateToken(user);
+    }
+
+    /**
+     * Validate a token and blacklist jti of this token
+     * to confirm complete logout.
+     */
+    public void logout(String token) {
+        try {
+            var decodedJWT = jwtTokenService.validateToken(token);
+            String jti = jwtTokenService.extractJti(decodedJWT);
+            tokenBlacklistService.blacklistToken(jti);
+        } catch (Exception e) {
+            log.debug("Logout error: {}", e.getMessage());
+        }
     }
 
     private void validatePassword(String password) {
