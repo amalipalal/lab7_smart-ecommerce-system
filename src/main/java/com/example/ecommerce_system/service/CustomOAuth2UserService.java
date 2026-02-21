@@ -20,7 +20,6 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
-        log.debug("ABOUT TO LOAD USER IN CUSTOMOAUTHSERVICE");
         OAuth2User oAuth2User = delegate.loadUser(userRequest);
 
         String email = oAuth2User.getAttribute("email");
@@ -28,9 +27,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         String lastName = oAuth2User.getAttribute("family_name");
 
         var user = authService.oauthSignup(email, firstName, lastName);
-        log.debug("USER EMAIL IS {}", user.getEmail());
 
         return new OAuth2UserWithUserObject(oAuth2User, user);
     }
 }
-
