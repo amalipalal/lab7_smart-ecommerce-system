@@ -271,6 +271,7 @@ class CategoryServiceTest {
         verify(categoryRepository).findAll(PageRequest.of(0, 10));
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     @DisplayName("Should search categories by name successfully")
     void shouldSearchCategoriesByNameSuccessfully() {

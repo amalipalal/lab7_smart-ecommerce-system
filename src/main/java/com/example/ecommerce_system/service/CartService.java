@@ -14,11 +14,8 @@ import com.example.ecommerce_system.repository.CartItemRepository;
 import com.example.ecommerce_system.repository.CartRepository;
 import com.example.ecommerce_system.repository.CustomerRepository;
 import com.example.ecommerce_system.repository.ProductRepository;
-import com.example.ecommerce_system.util.CartItemSpecification;
 import com.example.ecommerce_system.util.mapper.CartItemMapper;
 import lombok.AllArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -145,23 +142,4 @@ public class CartService {
         return cartItemMapper.toDTOList(cartItems);
     }
 
-    /**
-     * Search through a customer's cart items by product name or description with pagination.
-     * Returns an empty list if the customer has no cart or no items match the search term.
-     */
-    public List<CartItemResponseDto> searchCartItems(UUID userId, String searchTerm, int limit, int offset) {
-        var customer = retrieveCustomerFromRepository(userId);
-
-        Optional<Cart> cartOpt = cartRepository.findCartByCustomer_CustomerId(customer.getCustomerId());
-
-        if (cartOpt.isEmpty()) return List.of();
-
-        UUID cartId = cartOpt.get().getCartId();
-        Specification<CartItem> spec = CartItemSpecification.searchByProductNameOrDescription(cartId, searchTerm);
-        PageRequest pageRequest = PageRequest.of(offset / limit, limit);
-
-        List<CartItem> cartItems = cartItemRepository.findAll(spec, pageRequest).getContent();
-
-        return cartItemMapper.toDTOList(cartItems);
-    }
 }

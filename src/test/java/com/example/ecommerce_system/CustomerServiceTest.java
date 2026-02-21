@@ -219,7 +219,7 @@ class CustomerServiceTest {
         when(customerRepository.findById(id)).thenReturn(Optional.of(existing));
         when(customerMapper.toDTO(existing)).thenReturn(responseDto);
 
-        CustomerResponseDto result = customerService.updateCustomer(id, request);
+        customerService.updateCustomer(id, request);
 
         Assertions.assertEquals("+233111222333", existing.getPhone());
         Assertions.assertTrue(existing.getActive());
@@ -254,7 +254,7 @@ class CustomerServiceTest {
         when(customerRepository.findById(id)).thenReturn(Optional.of(existing));
         when(customerMapper.toDTO(existing)).thenReturn(responseDto);
 
-        CustomerResponseDto result = customerService.updateCustomer(id, request);
+        customerService.updateCustomer(id, request);
 
         Assertions.assertEquals("+233123456789", existing.getPhone());
         Assertions.assertFalse(existing.getActive());
@@ -289,7 +289,7 @@ class CustomerServiceTest {
         when(customerRepository.findById(id)).thenReturn(Optional.of(existing));
         when(customerMapper.toDTO(existing)).thenReturn(responseDto);
 
-        CustomerResponseDto result = customerService.updateCustomer(id, request);
+        customerService.updateCustomer(id, request);
 
         Assertions.assertEquals("+233999888777", existing.getPhone());
         Assertions.assertFalse(existing.getActive());
