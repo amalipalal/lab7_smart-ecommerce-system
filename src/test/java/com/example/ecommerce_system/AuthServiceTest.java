@@ -15,7 +15,9 @@ import com.example.ecommerce_system.repository.RoleRepository;
 import com.example.ecommerce_system.repository.UserRepository;
 import com.example.ecommerce_system.service.AuthService;
 import com.example.ecommerce_system.service.JwtTokenService;
+import com.example.ecommerce_system.service.TokenBlacklistService;
 import com.example.ecommerce_system.util.mapper.AuthMapper;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -56,6 +58,9 @@ class AuthServiceTest {
 
     @Mock
     private AuthenticationManager authenticationManager;
+
+    @Mock
+    private TokenBlacklistService tokenBlacklistService;
 
     @InjectMocks
     private AuthService authService;
@@ -635,5 +640,61 @@ class AuthServiceTest {
 
         verify(userRepository).save(argThat(user -> user.getUserId() != null));
         verify(roleRepository).findRoleByRoleName(RoleType.CUSTOMER);
+    }
+
+    @Test
+    @DisplayName("Should logout user successfully")
+    void shouldLogoutUserSuccessfully() {
+        String token = "valid-jwt-token";
+        DecodedJWT decodedJWT = mock(DecodedJWT.class);
+
+        when(jwtTokenService.validateToken(token)).thenReturn(decodedJWT);
+        when(jwtTokenService.extractJti(decodedJWT)).thenReturn("token-jti-123");
+
+        authService.logout(token);
+
+        verify(jwtTokenService).validateToken(token);
+        verify(jwtTokenService).extractJti(decodedJWT);
+        verify(tokenBlacklistService).blacklistToken("token-jti-123");
+    }
+
+    @Test
+    @DisplayName("Should handle exception when logout with invalid token")
+    void shouldHandleExceptionWhenLogoutWithInvalidToken() {
+        String token = "invalid-jwt-token";
+
+        when(jwtTokenService.validateToken(token)).thenThrow(new RuntimeException("Invalid token"));
+
+        authService.logout(token);
+
+        verify(jwtTokenService).validateToken(token);
+        verify(tokenBlacklistService, never()).blacklistToken(any());
+    }
+
+    @Test
+    @DisplayName("Should blacklist token with correct JTI")
+    void shouldBlacklistTokenWithCorrectJti() {
+        String token = "jwt-token-string";
+        String jti = "unique-jti-value";
+        DecodedJWT decodedJWT = mock(DecodedJWT.class);
+
+        when(jwtTokenService.validateToken(token)).thenReturn(decodedJWT);
+        when(jwtTokenService.extractJti(decodedJWT)).thenReturn(jti);
+
+        authService.logout(token);
+
+        verify(tokenBlacklistService).blacklistToken(jti);
+    }
+
+    @Test
+    @DisplayName("Should not throw exception on logout error")
+    void shouldNotThrowExceptionOnLogoutError() {
+        String token = "malformed-token";
+
+        when(jwtTokenService.validateToken(token)).thenThrow(new IllegalArgumentException("Malformed JWT"));
+
+        Assertions.assertDoesNotThrow(() -> authService.logout(token));
+
+        verify(jwtTokenService).validateToken(token);
     }
 }
