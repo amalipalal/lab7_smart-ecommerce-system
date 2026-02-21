@@ -114,6 +114,35 @@ public class AuthService {
         return jwtTokenService.generateToken(user);
     }
 
+    @Transactional
+    public User oauthSignup(String email, String firstName, String lastName) {
+        log.debug("OAUTH interaction with db {}", email);
+        return userRepository.findUserByEmail(email).orElseGet(() -> {
+            Role customerRole = roleRepository.findRoleByRoleName(RoleType.CUSTOMER)
+                    .orElseThrow(() -> new IllegalStateException("Customer role not found"));
+
+            User newUser = User.builder()
+                    .userId(UUID.randomUUID())
+                    .email(email)
+                    .passwordHash("")
+                    .role(customerRole)
+                    .createdAt(Instant.now())
+                    .build();
+
+            User savedUser = userRepository.save(newUser);
+            customerRepository.save(Customer.builder()
+                    .customerId(UUID.randomUUID())
+                    .user(savedUser)
+                    .firstName(firstName != null ? firstName : "")
+                    .lastName(lastName != null ? lastName : "")
+                    .phone("")
+                    .active(true)
+                    .build());
+
+            return savedUser;
+        });
+    }
+
     /**
      * Validate a token and blacklist jti of this token
      * to confirm complete logout.
