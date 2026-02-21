@@ -116,7 +116,7 @@ public class AuthService {
 
     @Transactional
     public User oauthSignup(String email, String firstName, String lastName) {
-        log.debug("ABOUT TO START SIGNING UP {}", email);
+        log.debug("OAUTH interaction with db {}", email);
         return userRepository.findUserByEmail(email).orElseGet(() -> {
             Role customerRole = roleRepository.findRoleByRoleName(RoleType.CUSTOMER)
                     .orElseThrow(() -> new IllegalStateException("Customer role not found"));
