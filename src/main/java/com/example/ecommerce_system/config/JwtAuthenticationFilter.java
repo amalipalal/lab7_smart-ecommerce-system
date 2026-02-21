@@ -3,6 +3,7 @@ package com.example.ecommerce_system.config;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.example.ecommerce_system.service.JwtTokenService;
+import com.example.ecommerce_system.service.TokenBlacklistService;
 import com.example.ecommerce_system.model.CustomUserDetails;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -27,6 +28,7 @@ import java.util.UUID;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenService jwtTokenService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     protected void doFilterInternal(
@@ -39,7 +41,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (token != null) {
                 DecodedJWT decodedJWT = jwtTokenService.validateToken(token);
-                setAuthentication(decodedJWT);
+                String jti = jwtTokenService.extractJti(decodedJWT);
+
+                if (!tokenBlacklistService.isBlacklisted(jti)) {
+                    setAuthentication(decodedJWT);
+                } else {
+                    SecurityContextHolder.clearContext();
+                }
             }
         } catch (JWTVerificationException e) {
             SecurityContextHolder.clearContext();
